@@ -1,0 +1,515 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+*{margin: 0px; padding: 0px; box-sizing: border-box;}
+
+
+body{
+  font-family: "Montserrat", sans-serif;
+  font-optical-sizing: auto;
+  background: #f5f0f0;
+  color: #3e3e3e;
+  overflow-x: hidden;
+}
+
+p{font-size: 14px; line-height: 25px; margin-bottom: 10px; margin-top: 10px;}
+
+h1, h2, h3, h4, h5, h6{font-weight: 600;}
+
+
+::-webkit-scrollbar{width: 8px !important; height: 8px !important;}
+::-webkit-scrollbar-thumb{background: #ff5252;}
+::-webkit-scrollbar-track{background: #fff;}
+
+.overflow-x-auto::-webkit-scrollbar-thumb{background: #ccc;}
+
+.container{width: 95%; margin: auto;}
+
+.btn-org{background: #ff5252 !important; color: #fff !important; font-weight: 500; font-size: 16px; padding: 7px 20px !important; border:1px solid transparent !important; }
+.btn-org:hover{background: #171717 !important;}
+
+.btn-org.btn-border{background: none !important; color: #ff5252 !important; border:1px solid #ff5252 !important; font-weight: 500; font-size: 16px; padding: 7px 20px !important;}
+.btn-org.btn-border:hover{background: #171717 !important; color: #fff !important;  border:1px solid #171717 !important;}
+
+.btn-dark{background: #363636 !important; color: #fff !important;  border:1px solid #171717 !important;}
+.btn-dark:hover{background: #171717 !important; }
+
+
+.btn-lg{ font-size: 18px; padding: 10px 20px !important;}
+.btn-sm{ font-size: 12px !important; padding: 5px 20px !important;}
+
+.link:hover,.Mui-checked{color: #ff5252 !important;}
+
+.MuiBadge-badge{background-color: #ff5252 !important;}
+
+nav ul button{text-transform: capitalize !important;}
+
+nav ul button:hover{background: none !important;}
+
+.scroll::-webkit-scrollbar{width: 5px !important;}
+.scroll::-webkit-scrollbar-thumb{background: #ccc !important;}
+
+.sliderHome{overflow: inherit !important;}
+
+.swiper-button-prev,.swiper-button-next{display: flex; align-items: center; justify-content: center; background: #fff; border-radius: 100%; width: 45px; height: 45px; min-width: 45px;
+  box-shadow: 0 1px 3px #0000001f, 0 1px 2px #0000003d !important; transition:all 0.2s;}
+
+.swiper-button-prev:after,.swiper-button-next:after{font-size: 22px !important; color: #000;}
+
+
+.smlBtn .swiper-button-prev,.smlBtn .swiper-button-next{width: 30px !important; height: 30px !important; min-width: 30px !important; top: 55% !important;}
+.smlBtn  .swiper-button-prev:after,.smlBtn  .swiper-button-next:after{font-size: 18px !important; color: #000;}
+
+
+.homeCatSlider{overflow: inherit !important;}
+.homeCatSlider .swiper-button-prev,.homeCatSlider .swiper-button-next{width: 30px; height: 30px;  min-width: 30px;}
+.homeCatSlider .swiper-button-prev:after,.homeCatSlider .swiper-button-next:after{font-size: 16px !important;}
+
+.homeCatSlider .swiper-button-prev{left: -10px !important;}
+.homeCatSlider .swiper-button-next{right: -10px !important;}
+
+.homeCatSlider .item{border: 1px solid rgba(0,0,0,0.1);}
+
+.swiper-button-prev:hover,.swiper-button-next:hover{background: #ff5252 !important;}
+.swiper-button-prev:hover::after,.swiper-button-next:hover::after{color: #fff !important;}
+
+.homeCatSlider .item:hover img{transform:scale(1.1);}
+
+
+.MuiTabs-indicator{background-color: #ff5252 !important;}
+.MuiTab-textColorPrimary.Mui-selected{color:#ff5252 !important;}
+
+.productsSlider .swiper-wrapper{padding: 15px 8px; margin-left: -15px; margin-right: -15px;}
+
+.productsSlider .swiper-slide {
+  width: 100% !important;
+  max-width: 280px !important;
+  flex-shrink: 0 !important;
+}
+
+
+footer form input::placeholder{font-size: 14px;}
+
+.css-imrjgg-MuiButtonBase-root-MuiCheckbox-root.Mui-checked, .css-imrjgg-MuiButtonBase-root-MuiCheckbox-root.MuiCheckbox-indeterminate{color:#ff5252 !important;}
+
+
+.MuiFormControlLabel-label{font-size: 13px !important; color: rgba(0,0,0,0.8);}
+
+.swiper-pagination-bullet-active{background: #ff5252 !important;}
+
+
+.homeSliderV2 .swiper-slide-active .info{right: 0px !important; opacity: 1;}
+.homeSliderV2 .swiper-slide-active .info h4{right: 0px !important; opacity: 1;}
+.homeSliderV2 .swiper-slide-active .info h3{right: 0px !important; opacity: 1;}
+.homeSliderV2 .swiper-slide-active .info h2{right: 0px !important; opacity: 1;}
+.homeSliderV2 .swiper-slide-active .info .btn_{right: 0px !important; opacity: 1;}
+
+.homeSliderV2 .info h4{transition-duration: 1.2s;}
+.homeSliderV2 .info h2{transition-duration: 1.5s;}
+.homeSliderV2 .info h3{transition-duration: 1.8s;}
+.homeSliderV2 .info .btn_{transition-duration: 2.1s;}
+
+.MuiCheckbox-root{padding:6px !important;}
+
+.ReactCollapse--collapse {
+  transition: height 400ms;
+}
+
+.itemViewActions button.active svg{color:#ff5252 !important; opacity: 1;}
+.Mui-selected.MuiPaginationItem-page{background: #ff5252 !important; color:#fff !important;}
+
+.shadow-md,.shadow-lg{box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24) !important;}
+
+.zoomProductSliderThumbs.space .swiper-wrapper{padding-top: 38px !important;}
+.zoomProductSliderThumbs .swiper-button-next{bottom: 0px !important; right: inherit !important; top: inherit !important; width: 100% !important; height: 30px !important; border-radius: 0px !important;}
+
+.zoomProductSliderThumbs .swiper-button-next:after{transform: rotate(90deg);}
+
+.zoomProductSliderThumbs .swiper-button-prev{top: 20px !important; left:0 !important;  width: 100% !important; height: 30px !important; border-radius: 0px !important;}
+
+.zoomProductSliderThumbs .swiper-button-prev:after{transform: rotate(90deg);}
+
+
+.productContent .actions button{min-width: 40px !important; height: 30px !important; border: 1px solid rgba(0,0,0,0.1) !important; color: rgba(0,0,0,0.7);}
+.productContent .actions button.error{ border: 1px solid #ff5252 !important;}
+
+input[type=number]::-webkit-inner-spin-button, 
+input[type=number]::-webkit-outer-spin-button { 
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none; 
+}
+
+
+.reviewScroll::-webkit-scrollbar{width: 5px !important;}
+.reviewScroll::-webkit-scrollbar-thumb{background: #ccc !important;}
+
+
+.productDetailsModal .MuiDialogContent-root{padding:0px !important;}
+
+.productsSlider .swiper,.blogSection .swiper{overflow: inherit !important;}
+
+.cartPanel .MuiPaper-root{width: 380px; overflow: hidden; max-height: 100vh;}
+.addressPanel .MuiPaper-root{width: 500px; overflow: hidden;}
+
+
+#size-menu .MuiButtonBase-root{font-size: 12px !important;}
+
+.otpBox input{border: 1px solid rgba(0,0,0,0.3) !important; outline: none !important;
+  border-radius: 4px;}
+  .otpBox input:focus{border: 1px solid rgba(0,0,0,0.7) !important;}
+  
+  .otpPage .container{height:90vh; display: flex;}
+
+  #account-menu .MuiPaper-root{width: 200px !important;}
+
+  .myAccountTabs li a{position: relative; display: block;}
+  .myAccountTabs li a:before{content: ''; width: 3px; height: 50%; position: absolute; top: 50%; left: 0px; background: #ff5252; transition: all 0.3s ease-in-out; opacity: 0;}
+
+  .myAccountTabs li a.active::before{height: 100%; opacity: 1; top: 0px;}
+  .myAccountTabs li a.active button svg{color: #ff5252 !important; opacity: 1 !important;}
+
+  button .MuiCircularProgress-root{width:25px !important; height:25px !important;}
+  button.btn-org .MuiCircularProgress-root{color: #fff !important;}
+  .addtocart .MuiCircularProgress-root{width:20px !important; height:20px !important;}
+
+  .react-international-phone-input{width: 100% !important;}
+.react-international-phone-country-selector-button{width: 55px !important;}
+.react-international-phone-input-container{border: 1px solid rgba(0,0,0,0.1) !important;}
+
+.MuiDialog-paper{width: 700px !important; max-width: 700px !important;}
+
+.productDetailsModal  .MuiDialog-paper{width: 1200px !important; max-width: 1200px !important;}
+
+header{box-shadow: 0px 1px 5px #0000001a;}
+
+.lazy-load-image-background img{transition: all 0.1s ease-in-out !important ;}
+
+.MuiFormControlLabel-root{margin-right: 0px !important;}
+
+.MuiCircularProgress-root{@apply !text-primary}
+
+.MuiButtonBase-root.MuiMenuItem-root.MuiMenuItem-gutters.selected{@apply !text-primary}
+
+.react-international-phone-country-selector-dropdown{z-index: 100 !important;}
+
+#paypal-button-container{width: 100% !important;}
+
+
+table td{padding: 8px 17px !important; font-size: 13px !important;}
+
+.searchBox .MuiCircularProgress-root{width: 20px !important; height: 20px !important;}
+
+/* Blog Details Styles */
+.blog-content {
+  font-size: 16px;
+  line-height: 1.8;
+  color: #3e3e3e;
+}
+
+.blog-content p {
+  margin-bottom: 16px;
+}
+
+.blog-content h1, .blog-content h2, .blog-content h3 {
+  margin-top: 24px;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+.blog-content h1 { font-size: 28px; }
+.blog-content h2 { font-size: 24px; }
+.blog-content h3 { font-size: 20px; }
+
+.blog-content ul, .blog-content ol {
+  margin: 16px 0;
+  padding-left: 24px;
+}
+
+.blog-content li {
+  margin-bottom: 8px;
+}
+
+.blog-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 16px 0;
+}
+
+.blog-content blockquote {
+  border-left: 4px solid #2bbef9;
+  padding-left: 16px;
+  margin: 16px 0;
+  font-style: italic;
+  color: #666;
+}
+
+.blog-content a {
+  color: #2bbef9;
+  text-decoration: none;
+}
+
+.blog-content a:hover {
+  text-decoration: underline;
+}
+
+.blog-content code {
+  background: #f5f5f5;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.blog-content pre {
+  background: #f5f5f5;
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+.blog-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+}
+
+.blog-content table th, .blog-content table td {
+  border: 1px solid #ddd;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.blog-content table th {
+  background: #f5f5f5;
+}
+
+/* WhatsApp Chat Widget */
+.whatsapp-chat-fixed {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9998;
+  font-family: "Montserrat", sans-serif;
+}
+
+.whatsapp-chat-fixed.cart-open {
+  display: none;
+}
+
+.whatsapp-float-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.whatsapp-float-main {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 8px 25px rgba(37, 211, 102, 0.5);
+  transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  position: relative;
+  overflow: hidden;
+}
+
+.whatsapp-float-main::before {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #20b858 0%, #0d6e63 100%);
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.whatsapp-float-main:hover::before {
+  opacity: 1;
+}
+
+.whatsapp-float-main:hover {
+  transform: scale(1.1);
+  box-shadow: 0 12px 35px rgba(37, 211, 102, 0.6);
+}
+
+.whatsapp-float-main.active {
+  transform: rotate(90deg);
+}
+
+.whatsapp-float-main.active .whatsapp-float-icon {
+  transform: rotate(-90deg);
+}
+
+.whatsapp-float-icon {
+  font-size: 26px;
+  color: white;
+  position: relative;
+  z-index: 1;
+  transition: transform 0.3s ease;
+}
+
+.whatsapp-float-label {
+  font-size: 9px;
+  color: white;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+  position: relative;
+  z-index: 1;
+}
+
+.whatsapp-float-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: absolute;
+  bottom: 70px;
+  right: 0;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(20px) scale(0.8);
+  transition: all 0.3s ease;
+}
+
+.whatsapp-float-main.active ~ .whatsapp-float-options {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+}
+
+.whatsapp-float-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px;
+  border-radius: 30px;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.whatsapp-float-option:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.whatsapp-float-option.wa-primary {
+  background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+}
+
+.whatsapp-float-option.wa-hongkong {
+  background: linear-gradient(135deg, #34B7F1 0%, #1a8dc4 100%);
+  box-shadow: 0 4px 15px rgba(52, 183, 241, 0.4);
+}
+
+.whatsapp-float-option.email-option {
+  background: linear-gradient(135deg, #ea4335 0%, #c5221f 100%);
+  box-shadow: 0 4px 15px rgba(234, 67, 53, 0.4);
+}
+
+.whatsapp-float-option.phone-option {
+  background: linear-gradient(135deg, #7c4dff 0%, #651fff 100%);
+  box-shadow: 0 4px 15px rgba(124, 77, 255, 0.4);
+}
+
+.whatsapp-float-option svg {
+  font-size: 16px;
+}
+
+.whatsapp-float-option span {
+  position: relative;
+  z-index: 1;
+}
+
+/* Notification dot */
+.whatsapp-float-main::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 12px;
+  height: 12px;
+  background: white;
+  border-radius: 50%;
+  animation: notificationPulse 2s infinite;
+}
+
+@keyframes notificationPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.3); opacity: 0.7; }
+}
+
+/* Mobile styles */
+@media (max-width: 768px) {
+  .whatsapp-chat-fixed {
+    bottom: 90px;
+    right: 16px;
+    z-index: 9997;
+  }
+
+  .whatsapp-chat-fixed.cart-open {
+    display: none;
+  }
+
+  .whatsapp-float-main {
+    width: 54px;
+    height: 54px;
+  }
+
+  .whatsapp-float-icon {
+    font-size: 24px;
+  }
+
+  .whatsapp-float-label {
+    display: none;
+  }
+
+  .whatsapp-float-main::after {
+    top: 6px;
+    right: 6px;
+    width: 10px;
+    height: 10px;
+  }
+
+  .whatsapp-float-options {
+    bottom: 62px;
+    right: 0;
+  }
+
+  .whatsapp-float-option {
+    padding: 10px 14px;
+    font-size: 12px;
+  }
+
+  .whatsapp-float-option span {
+    display: none;
+  }
+
+  .whatsapp-float-option svg {
+    font-size: 20px;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}

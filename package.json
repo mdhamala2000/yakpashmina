@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@airwallex/airtracker": "^3.2.0"
+  }
+}

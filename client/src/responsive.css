@@ -1,0 +1,151 @@
+
+@media only screen and (min-width:320px) and (max-width:992px){
+    html,body{overflow-x: hidden;}
+
+    .section{ padding: 20px 0 !important; }
+    .sectionTitle{ font-size: 18px !important; margin-bottom: 15px !important; }
+    .sectionSubTitle{ font-size: 14px !important; }
+
+    .btn-sm{padding: 3px 10px !important; font-size: 11px !important;}
+    .btn-lg{padding: 5px 10px !important; font-size: 14px !important;}
+    .btn{padding: 5px 10px !important; font-size: 12px !important;}
+    .btn svg{font-size: 15px !important;}
+
+    .mobileNav a.active button{@apply !text-primary}
+    .navigation ul{white-space: nowrap; overflow-x: scroll; overflow-y: hidden; display: block !important; text-align: center;}
+    .navigation ul::-webkit-scrollbar{display: none !important;}
+    .navigation ul li{display: inline-block !important; vertical-align: top !important;}
+
+    .container{width: 95% !important; max-width: 95% !important; padding-left: 10px !important; padding-right: 10px !important;}
+
+    .scrollableBox{white-space: nowrap; overflow-x: scroll; overflow-y: hidden; display: block !important;}
+    .scrollableBox::-webkit-scrollbar{display: none !important;}
+    .scrollableBox .box{display: inline-block !important; vertical-align: top !important; margin-right: 12px !important; width: 300px !important;}
+    .scrollableBox .box .info *{white-space: break-spaces !important;}
+
+    .scrollableBox .col{display: inline-block !important; vertical-align: top !important; margin-right: 12px !important; width: 200px !important;}
+    .productsSlider .swiper, .blogSection .swiper{overflow: hidden !important;}
+
+    .resBannersSlider{white-space: nowrap; overflow-x: scroll; overflow-y: hidden; display: block !important;}
+
+    .productsSlider .swiper-wrapper{padding: 7px !important;}
+    .resBannersSlider .swiper-slide{display: inline-block !important; vertical-align: top !important; margin-right: 12px !important; width: 300px !important;}
+    .resBannersSlider .swiper-slide *{white-space: break-spaces !important;}
+
+    .footerBoxWrap{padding-left:20px !important ;}
+    .footerBoxWrap .col{width: 180px !important;}
+
+    .sidebarWrapper.open{bottom: 0px !important; opacity: 1 !important;}
+
+    .myAccountTabs{position: relative !important; top: 0 !important;}
+
+    .pageHeader{ padding: 15px 0 !important; }
+    .pageHeader h1{ font-size: 20px !important; }
+    .pageHeader p{ font-size: 12px !important; margin-top: 5px !important; }
+
+    .productGrid{ gap: 12px !important; }
+    .productCard{ margin-bottom: 12px !important; }
+
+}
+
+@media only screen and (min-width:320px) and (max-width:767px){
+    .MuiTabs-flexContainer button{font-size: 13px !important;}
+    .productItem  .addToCartBtn{padding: 7px 13px !important;}
+
+    .productListingPage .rightContent > div:first-child{ 
+        padding: 10px 12px !important; 
+        margin-bottom: 10px !important; 
+    }
+    
+    .productListingPage .col1 .hidden.lg\:flex{
+        display: flex !important;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .productListingPage .col1 .hidden.lg\:flex span{
+        font-size: 11px;
+    }
+    
+    .productListingPage .col1 > button{
+        font-size: 11px;
+        padding: 6px 10px;
+    }
+    
+    .productListingPage .col2 > button.MuiSelect-select{
+        font-size: 11px;
+    }
+    
+    .productListingPage .grid .productItem{
+        margin-bottom: 0;
+    }
+
+    .part2_col1 li a,.part2_col2 li a{font-size: 13px !important;} 
+
+    .sidebar{max-height: 100vh !important; overflow-y: scroll !important; overflow-x: hidden !important;}
+    .sidebar::-webkit-scrollbar{display: none !important;}
+
+    .zoomProductSliderThumbs.space .swiper-wrapper{padding-top: 0px !important;}
+
+    .productListingPage section.pb-0 > div:first-child{ padding: 8px 12px !important; margin-bottom: 0 !important; }
+    .productListingPage h1{ font-size: 16px !important; line-height: 1.2 !important; font-weight: 600 !important; margin: 0 !important; }
+    .productListingPage h1 + p{ font-size: 10px !important; margin-top: 2px !important; display: block !important; visibility: visible !important; opacity: 1 !important; }
+
+    .homeCatSlider .swiper-slide{ height: auto !important; }
+    .homeCatSlider .item{ height: 100% !important; min-height: 90px !important; }
+    .homeCatSlider .item img{ object-fit: contain !important; }
+
+    .col1 img, header .col1 img{ width: 45px !important; max-width: 45px !important; height: auto !important; }
+    @media (min-width: 400px){ .col1 img, header .col1 img{ width: 50px !important; max-width: 50px !important; } }
+    @media (min-width: 768px){ .col1 img, header .col1 img{ width: 55px !important; max-width: 55px !important; } }
+    @media (min-width: 1024px){ .col1 img, header .col1 img{ width: 60px !important; max-width: 60px !important; } }
+    
+    .productListingPage .rightContent{ padding: 0 !important; }
+    .productListingPage .rightContent > div:first-child{ 
+        padding: 10px 12px !important; 
+        margin-bottom: 10px !important; 
+        position: sticky !important;
+        top: 135px !important;
+    }
+    .productListingPage .col1{ display: flex !important; align-items: center !important; gap: 8px !important; }
+    .productListingPage .col1 button{ width: 26px !important; height: 26px !important; min-width: 26px !important; padding: 0 !important; }
+    .productListingPage .col1 button.active{ background-color: #e5e7eb !important; }
+    .productListingPage .col1 span{ font-size: 11px !important; }
+    .productListingPage .col2{ display: flex !important; align-items: center !important; gap: 6px !important; }
+    .productListingPage .col2 > span:first-child{ font-size: 11px !important; }
+    .productListingPage .col2 button{ 
+        font-size: 11px !important; 
+        padding: 4px 8px !important; 
+        min-width: 55px !important; 
+    }
+
+}
+
+
+
+@media only screen and (min-width:320px) and (max-width:575px){
+    .cartPanel .MuiPaper-root,.addressPanel .MuiPaper-root{width: 300px !important; height: 100vh !important; max-height: 100vh !important;}
+}
+
+@media only screen and (min-width:575px) and (max-width:767px){
+    .cartPanel .MuiPaper-root,.addressPanel .MuiPaper-root{width: 400px !important; height: 100vh !important; max-height: 100vh !important;}
+}
+
+@media only screen and (min-width:320px) and (max-width:574px){
+    .blogPage{ padding: 15px 0 !important; }
+    .blogHero{ padding: 20px 10px !important; }
+    .blogHero h1{ font-size: 22px !important; }
+    .blogHero p{ font-size: 13px !important; }
+    .blogCard{ margin-bottom: 15px !important; }
+    .blogCardContent{ padding: 15px !important; }
+    .blogNewsletter{ padding: 20px 15px !important; margin-top: 30px !important; border-radius: 20px !important; }
+
+    .reviewsPage{ padding: 15px 0 !important; }
+    .reviewsHero{ padding: 15px 10px !important; }
+    .reviewsHero h1{ font-size: 20px !important; }
+    .reviewsHero p{ font-size: 13px !important; }
+    .reviewsStats{ padding: 15px !important; margin-bottom: 15px !important; border-radius: 12px !important; }
+    .reviewsStats .avgRating{ font-size: 32px !important; }
+    .reviewsSearch{ padding: 12px !important; margin-bottom: 12px !important; border-radius: 12px !important; }
+    .reviewCard{ padding: 15px !important; margin-bottom: 12px !important; border-radius: 12px !important; }
+}
