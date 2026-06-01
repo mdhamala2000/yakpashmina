@@ -1,11 +1,11 @@
 import { Router } from 'express';
-import auth from '../middlewares/auth.js';
+import auth, { requireAdmin } from '../middlewares/auth.js';
 import ShippingRateModel from '../models/shippingRate.model.js';
 
 const shippingRateRouter = Router();
 
 // RESET ALL - delete everything and start fresh
-shippingRateRouter.post('/reset-all', async (req, res) => {
+shippingRateRouter.post('/reset-all', auth, requireAdmin, async (req, res) => {
     try {
         const result = await ShippingRateModel.deleteMany({});
         return res.status(200).json({
@@ -22,7 +22,7 @@ shippingRateRouter.post('/reset-all', async (req, res) => {
     }
 });
 
-shippingRateRouter.get('/reset-all', async (req, res) => {
+shippingRateRouter.get('/reset-all', auth, requireAdmin, async (req, res) => {
     try {
         const result = await ShippingRateModel.deleteMany({});
         return res.status(200).json({
@@ -128,7 +128,7 @@ const countryNames = {
 });
 
 // Get all
-shippingRateRouter.get('/', async (req, res) => {
+shippingRateRouter.get('/', auth, async (req, res) => {
     try {
         const shippingRates = await ShippingRateModel.find().sort({ displayOrder: 1, createdAt: -1 });
         return res.status(200).json({
@@ -293,7 +293,7 @@ shippingRateRouter.put('/:id', auth, async (req, res) => {
 });
 
 // Delete single
-shippingRateRouter.delete('/:id', async (req, res) => {
+shippingRateRouter.delete('/:id', auth, requireAdmin, async (req, res) => {
     try {
         const shippingRate = await ShippingRateModel.findByIdAndDelete(req.params.id);
         if (!shippingRate) {

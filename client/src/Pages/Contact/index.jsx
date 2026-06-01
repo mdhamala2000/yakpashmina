@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { FaWhatsapp, FaEnvelope, FaPhone, FaMapMarkerAlt, FaClock, FaPaperPlane, FaChevronRight } from "react-icons/fa";
 import TextField from "@mui/material/TextField";
 import toast from "react-hot-toast";
+import { postData } from "../../utils/api";
 
 const Contact = () => {
   const [formData, setFormData] = useState({
@@ -18,18 +19,32 @@ const Contact = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name || !formData.email || !formData.message) {
       toast.error("Please fill in required fields");
       return;
     }
     setSending(true);
-    setTimeout(() => {
-      toast.success("Message sent successfully!");
-      setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
-      setSending(false);
-    }, 1500);
+    try {
+      const res = await postData("/api/user/sendInquiry", {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        subject: formData.subject,
+        message: formData.message,
+        toEmail: "Mdhamala2000@gmail.com"
+      });
+      if (res?.error === false) {
+        toast.success("Message sent successfully!");
+        setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
+      } else {
+        toast.error(res?.message || "Failed to send message");
+      }
+    } catch (error) {
+      toast.error("Something went wrong. Please try again.");
+    }
+    setSending(false);
   };
 
   const contactInfo = [

@@ -1,160 +1,84 @@
 import axios from 'axios';
 
-const AIRWALLEX_API_URL = process.env.AIRWALLEX_API_URL || 'https://api-demo.airwallex.com';
-
-console.log('=== AIRWALLEX CONFIG LOADED ===');
-console.log('API_URL:', AIRWALLEX_API_URL);
-console.log('API_KEY exists:', !!process.env.AIRWALLEX_API_KEY);
-console.log('API_KEY value:', process.env.AIRWALLEX_API_KEY);
-console.log('CLIENT_ID:', process.env.AIRWALLEX_CLIENT_ID);
-
 class AirwallexService {
   constructor() {
     this.apiKey = process.env.AIRWALLEX_API_KEY;
     this.clientId = process.env.AIRWALLEX_CLIENT_ID;
-    this.apiUrl = AIRWALLEX_API_URL;
-    this.accessToken = null;
+    this.isLive = process.env.AIRWALLEX_ENVIRONMENT === 'live';
+    this.apiBase = this.isLive ? 'https://api.airwallex.com' : 'https://api-demo.airwallex.com';
+    this.token = null;
     this.tokenExpiry = null;
+    this.loginAs = process.env.AIRWALLEX_ACCOUNT_ID || null;
   }
 
-  async getAccessToken() {
-    if (this.accessToken && this.tokenExpiry && Date.now() < this.tokenExpiry) {
-      return this.accessToken;
+  async getAuthToken() {
+    if (this.token && this.tokenExpiry && Date.now() < this.tokenExpiry) {
+      return this.token;
     }
     try {
-      console.log('=== AIRWALLEX LOGIN ATTEMPT ===');
-      console.log('x-api-key:', this.apiKey);
-      console.log('x-client-id:', this.clientId);
-      
-      if (!this.apiKey || !this.clientId) {
-        console.error('MISSING API KEY OR CLIENT ID');
-        throw new Error('Missing AIRWALLEX_API_KEY or AIRWALLEX_CLIENT_ID');
-      }
       const headers = {
-        'Content-Type': 'application/json',
         'x-api-key': this.apiKey,
-        'x-client-id': this.clientId
+        'x-client-id': this.clientId,
+        'Content-Type': 'application/json'
       };
-      
-      // Add account ID for sandbox multi-account access
-      if (process.env.AIRWALLEX_ACCOUNT_ID) {
-        headers['x-login-as'] = process.env.AIRWALLEX_ACCOUNT_ID;
-        console.log('Using Account ID:', process.env.AIRWALLEX_ACCOUNT_ID);
+      if (this.loginAs) {
+        headers['x-login-as'] = this.loginAs;
       }
-      
-      console.log('Login URL:', `${this.apiUrl}/api/v1/authentication/login`);
-      console.log('Attempting login with Client ID:', this.clientId);
-      
-      let response;
-      try {
-        response = await axios.post(
-          `${this.apiUrl}/api/v1/authentication/login`,
-          {},
-          { headers }
-        );
-        console.log('Login SUCCESS:', response.data);
-      } catch (loginError) {
-        console.error('=== AIRWALLEX LOGIN FAILED ===');
-        console.error('Status:', loginError.response?.status);
-        console.error('Response:', loginError.response?.data);
-        console.error('Full error:', loginError.message);
-        throw loginError;
-      }
-      
-      const accessToken = response.data.token;
-      console.log('Token obtained successfully');
-      this.accessToken = response.data.token;
-      this.tokenExpiry = Date.now() + (response.data.expires_in * 1000) - 60000;
-      console.log('Token obtained successfully');
-      return this.accessToken;
+      const response = await axios.post(`${this.apiBase}/api/v1/authentication/login`, {}, { headers });
+      this.token = response.data.token;
+      this.tokenExpiry = Date.now() + 55 * 60 * 1000;
+      return this.token;
     } catch (error) {
-      console.error('=== AIRWALLEX LOGIN FAILED ===');
-      console.error('Status:', error.response?.status);
-      console.error('Data:', error.response?.data);
-      console.error('Message:', error.message);
-      throw error;
+      const errData = error.response?.data || {};
+      console.error('Airwallex auth error:', JSON.stringify(errData));
+      const errMsg = errData.message || errData.error || error.message;
+      throw new Error(`Airwallex authentication failed: ${errMsg}`);
     }
   }
 
-  async createPaymentIntent(amount, currency = 'USD', customerId = null) {
+  async createPaymentIntent({ amount, currency, merchantOrderId, returnUrl, cancelUrl, metadata = {} }) {
+    const token = await this.getAuthToken();
     try {
-      const token = await this.getAccessToken();
-      const data = {
-        amount: parseFloat(amount),
-        currency: currency.toUpperCase(),
-        request_id: `req_${Date.now()}`,
-        merchant_order_id: `order_${Date.now()}`,
-        return_url: `${process.env.CLIENT_URL || 'http://localhost:5173'}/order/success`,
-        metadata: {
-          type: 'order_payment'
-        }
+      const payload = {
+        request_id: `${merchantOrderId}-${Date.now()}`,
+        amount: Math.round(amount * 100) / 100,
+        currency: currency.toLowerCase(),
+        merchant_order_id: merchantOrderId,
+        return_url: returnUrl,
+        cancel_url: cancelUrl,
+        metadata
       };
-
-      if (customerId) {
-        data.customer_id = customerId;
-      }
-
-      const response = await axios.post(
-        `${this.apiUrl}/api/v1/pa/payment_intents/create`,
-        data,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            'Airwallex-Client-Id': this.clientId
-          }
+      const response = await axios.post(`${this.apiBase}/api/v1/pa/payment_intents/create`, payload, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
-      );
-
-      return response.data;
+      });
+      const intent = response.data;
+      return {
+        id: intent.id,
+        clientSecret: intent.client_secret,
+        status: intent.status
+      };
     } catch (error) {
-      console.error('Airwallex create payment intent error:', error.response?.data || error.message);
-      throw error;
+      const errData = error.response?.data || {};
+      console.error('Airwallex create intent error:', JSON.stringify(errData));
+      const errMsg = errData.message || errData.error || error.message;
+      throw new Error(`Airwallex payment error: ${errMsg}`);
     }
   }
 
-  async confirmPaymentIntent(paymentIntentId, paymentMethod) {
+  async getPaymentIntent(intentId) {
+    const token = await this.getAuthToken();
     try {
-      const token = await this.getAccessToken();
-      const response = await axios.post(
-        `${this.apiUrl}/api/v1/pa/payment_intents/${paymentIntentId}/confirm`,
-        {
-          request_id: `req_${Date.now()}`,
-          payment_method: paymentMethod
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            'Airwallex-Client-Id': this.clientId
-          }
-        }
-      );
-
+      const response = await axios.get(`${this.apiBase}/api/v1/pa/payment_intents/${intentId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       return response.data;
     } catch (error) {
-      console.error('Airwallex confirm payment intent error:', error.response?.data || error.message);
-      throw error;
-    }
-  }
-
-  async getPaymentIntent(paymentIntentId) {
-    try {
-      const token = await this.getAccessToken();
-      const response = await axios.get(
-        `${this.apiUrl}/api/v1/pa/payment_intents/${paymentIntentId}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Airwallex-Client-Id': this.clientId
-          }
-        }
-      );
-
-      return response.data;
-    } catch (error) {
-      console.error('Airwallex get payment intent error:', error.response?.data || error.message);
-      throw error;
+      const errData = error.response?.data || {};
+      console.error('Airwallex get intent error:', JSON.stringify(errData));
+      throw new Error(`Failed to get payment intent: ${errData.message || errData.error || error.message}`);
     }
   }
 }

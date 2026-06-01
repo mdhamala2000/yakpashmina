@@ -19,6 +19,7 @@ import { FaPercent } from "react-icons/fa";
 import { FaShippingFast } from "react-icons/fa";
 import { FaCreditCard } from "react-icons/fa";
 import { FaShoppingCart } from "react-icons/fa";
+import { FaExclamationTriangle } from "react-icons/fa";
 
 
 
@@ -130,7 +131,7 @@ const Sidebar = () => {
 
           <li>
             <Button
-              className="w-full !capitalize !justify-start flex gap-3 text-[14px] !text-[rgba(0,0,0,0.8)] !font-[500] items-center !py-2 hover:!bg-[#f1f1f1]"
+              className="w-full !capitalize !justify-start flex gap-3 text-[14px] !text-gray-800 !font-[500] items-center !py-2 hover:!bg-[#f1f1f1]"
               onClick={() => isOpenSubMenu(3)}
             >
               <TbCategory className="text-[18px]" /> <span>Category</span>
@@ -149,48 +150,12 @@ const Sidebar = () => {
                     context?.windowWidth < 992 && context?.setisSidebarOpen(false)
                     setSubmenuIndex(null)
                   }}>
-                    <Button className="!text-[rgba(0,0,0,0.7)] !capitalize !justify-start !w-full !text-[13px] !font-[500] !pl-9 flex gap-3">
+                    <Button className="!text-gray-800 !capitalize !justify-start !w-full !text-[13px] !font-[500] !pl-9 flex gap-3">
                       <span className="block w-[5px] h-[5px] rounded-full bg-[rgba(0,0,0,0.2)]"></span>{" "}
-                      Category List
+                      All Categories
 
                     </Button>
                   </Link>
-                </li>
-                <li className="w-full">
-                  <Button className="!text-[rgba(0,0,0,0.7)] !capitalize !justify-start !w-full !text-[13px] !font-[500] !pl-9 flex gap-3" onClick={() => {
-                    context.setIsOpenFullScreenPanel({
-                      open: true,
-                      model: 'Add New Category'
-                    })
-                    context?.windowWidth < 992 && context?.setisSidebarOpen(false)
-                    setSubmenuIndex(null)
-                  }}>
-                    <span className="block w-[5px] h-[5px] rounded-full bg-[rgba(0,0,0,0.2)]"></span>
-                    Add a Category
-                  </Button>
-                </li>
-                <li className="w-full">
-                  <Link to="/subCategory/list" onClick={() => {
-                    context?.windowWidth < 992 && context?.setisSidebarOpen(false)
-                  }}>
-                    <Button className="!text-[rgba(0,0,0,0.7)] !capitalize !justify-start !w-full !text-[13px] !font-[500] !pl-9 flex gap-3">
-                      <span className="block w-[5px] h-[5px] rounded-full bg-[rgba(0,0,0,0.2)]"></span>
-                      Sub Category List
-                    </Button>
-                  </Link>
-                </li>
-                <li className="w-full">
-                  <Button className="!text-[rgba(0,0,0,0.7)] !capitalize !justify-start !w-full !text-[13px] !font-[500] !pl-9 flex gap-3" onClick={() => {
-                    context.setIsOpenFullScreenPanel({
-                      open: true,
-                      model: 'Add New Sub Category'
-                    })
-                    context?.windowWidth < 992 && context?.setisSidebarOpen(false)
-                    setSubmenuIndex(null)
-                  }}>
-                    <span className="block w-[5px] h-[5px] rounded-full bg-[rgba(0,0,0,0.2)]"></span>
-                    Add a Sub Category
-                  </Button>
                 </li>
               </ul>
             </Collapse>
@@ -339,7 +304,18 @@ const Sidebar = () => {
             </Link>
           </li>
 
-
+          <li>
+            <Link to="/inventory-alerts"
+              onClick={() => {
+                context?.windowWidth < 992 && context?.setisSidebarOpen(false)
+                setSubmenuIndex(null)
+              }}
+            >
+              <Button className="w-full !capitalize !justify-start flex gap-3 text-[14px] !text-[rgba(0,0,0,0.8)] !font-[500] items-center !py-2 hover:!bg-[#f1f1f1]">
+                <FaExclamationTriangle className="text-[18px] text-amber-500" /> <span>Inventory Alerts</span>
+              </Button>
+            </Link>
+          </li>
 
 
           <li>

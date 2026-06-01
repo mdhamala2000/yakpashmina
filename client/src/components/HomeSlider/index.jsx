@@ -9,12 +9,13 @@ import { MyContext } from "../../App";
 const HomeSlider = (props) => {
 
   const context  = useContext(MyContext);
+  const totalSlides = props?.data?.length || 0;
 
   return (
     <div className="homeSlider pb-3 pt-3 lg:pb-5 lg:pt-5 relative z-[99]">
       <div className="container">
         <Swiper
-          loop={true}
+          loop={false}
           spaceBetween={10}
           navigation={context?.windowWidth < 992 ? false : true}
           modules={[Navigation, Autoplay]}

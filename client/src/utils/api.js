@@ -1,14 +1,49 @@
 import axios from "axios";
 const apiUrl = import.meta.env.VITE_API_URL;
 
+export const getData = async (url) => {
+    try {
+        const token = localStorage.getItem('accessToken');
+        const headers = {
+            'Content-Type': 'application/json',
+        };
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        const response = await fetch(apiUrl + url, {
+            method: 'GET',
+            headers: headers,
+            credentials: 'include'
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            return data;
+        } else {
+            const errorData = await response.json();
+            return errorData;
+        }
+
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+
+
 export const postData = async (url, formData) => {
     try {
+        const token = localStorage.getItem('accessToken');
+        const headers = {
+            'Content-Type': 'application/json',
+        };
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
         
         const response = await fetch(apiUrl + url, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: headers,
             body: JSON.stringify(formData),
             credentials: 'include'
         });
@@ -77,12 +112,22 @@ export const editData = async (url, updatedData ) => {
 }
 
 
-export const deleteData = async (url ) => {
-    const { res } = await axios.delete(apiUrl + url, {
-        withCredentials: true,
-        headers: {
+export const deleteData = async (url) => {
+    try {
+        const token = localStorage.getItem('accessToken');
+        const headers = {
             'Content-Type': 'application/json',
-        },
-    })
-    return res;
+        };
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        const response = await axios.delete(apiUrl + url, {
+            withCredentials: true,
+            headers: headers,
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error:', error);
+        return error;
+    }
 }

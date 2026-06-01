@@ -1,308 +1,135 @@
 import HomeSliderModel from "../models/homeSlider.modal.js";
-
-import { v2 as cloudinary } from 'cloudinary';
+import cloudinary from '../config/cloudinaryConfig.js';
 import fs from 'fs';
 
-
-cloudinary.config({
-    cloud_name: process.env.cloudinary_Config_Cloud_Name,
-    api_key: process.env.cloudinary_Config_api_key,
-    api_secret: process.env.cloudinary_Config_api_secret,
-    secure: true,
-});
-
-
-//image upload
-var imagesArr = [];
 export async function uploadImages(request, response) {
     try {
-        imagesArr = [];
-
         const image = request.files;
-
-
-        const options = {
-            use_filename: true,
-            unique_filename: false,
-            overwrite: false,
-        };
-
-        for (let i = 0; i < image?.length; i++) {
-
-            const img = await cloudinary.uploader.upload(
-                image[i].path,
-                options,
-                function (error, result) {
-                    imagesArr.push(result.secure_url);
-                    fs.unlinkSync(`uploads/${request.files[i].filename}`);
-                }
-            );
+        if (!image || image.length === 0) {
+            return response.status(400).json({ message: "No files uploaded", error: true, success: false });
         }
-
-        return response.status(200).json({
-            images: imagesArr
-        });
-
+        const options = { use_filename: true, unique_filename: false, overwrite: false };
+        const results = await Promise.all(image.map(async (file) => {
+            const result = await cloudinary.uploader.upload(file.path, options);
+            try { fs.unlinkSync(file.path); } catch (e) { /* ignore */ }
+            return result.secure_url;
+        }));
+        return response.status(200).json({ images: results });
     } catch (error) {
-        return response.status(500).json({
-            message: error.message || error,
-            error: true,
-            success: false
-        })
+        return response.status(500).json({ message: error.message || error, error: true, success: false });
     }
 }
-
-
 
 export async function addHomeSlide(request, response) {
     try {
-
         let slide = new HomeSliderModel({
-            images: imagesArr,
+            images: request.body.images || [],
         });
-
-        if (!slide) {
-            return response.status(500).json({
-                message: "slide not created",
-                error: true,
-                success: false
-            })
-        }
-
-
         slide = await slide.save();
-
-        imagesArr = [];
-
-        return response.status(200).json({
-            message: "Slide created",
-            error: false,
-            success: true,
-            slide: slide
-        })
-
+        return response.status(200).json({ message: "Slide created", error: false, success: true, slide: slide });
     } catch (error) {
-        return response.status(500).json({
-            message: error.message || error,
-            error: true,
-            success: false
-        })
+        return response.status(500).json({ message: error.message || error, error: true, success: false });
     }
 }
-
-
 
 export async function getHomeSlides(request, response) {
     try {
-
         const slides = await HomeSliderModel.find();
-
-        if (!slides) {
-            return response.status(404).json({
-                message: "slides not found",
-                error: true,
-                success: false
-            })
-        }
-
-
-        return response.status(200).json({
-            error: false,
-            success: true,
-            data:slides
-        })
-
+        return response.status(200).json({ error: false, success: true, data: slides });
     } catch (error) {
-        return response.status(500).json({
-            message: error.message || error,
-            error: true,
-            success: false
-        })
+        return response.status(500).json({ message: error.message || error, error: true, success: false });
     }
 }
-
 
 export async function getSlide(request, response) {
     try {
         const slide = await HomeSliderModel.findById(request.params.id);
-
-
         if (!slide) {
-            response.status(500)
-                .json(
-                    {
-                        message: "The slide with the given ID was not found.",
-                        error: true,
-                        success: false
-                    }
-                );
+            return response.status(404).json({ message: "The slide with the given ID was not found.", error: true, success: false });
         }
-
-
-        return response.status(200).json({
-            error: false,
-            success: true,
-            slide: slide
-        })
-
+        return response.status(200).json({ error: false, success: true, slide: slide });
     } catch (error) {
-        return response.status(500).json({
-            message: error.message || error,
-            error: true,
-            success: false
-        })
+        return response.status(500).json({ message: error.message || error, error: true, success: false });
     }
 }
-
 
 export async function removeImageFromCloudinary(request, response) {
-  
-    const imgUrl = request.query.img;
-
-      
-        const urlArr = imgUrl.split("/");
-        const image = urlArr[urlArr.length - 1];
-    
-        const imageName = image.split(".")[0];
-
-    
-        if (imageName) {
-            const res = await cloudinary.uploader.destroy(
-                imageName,
-                (error, result) => {
-                    // console.log(error, res)
-                }
-            );
-    
-            if (res) {
-                response.status(200).send(res);
-            }
+    try {
+        const imgUrl = request.query.img;
+        if (!imgUrl) {
+            return response.status(400).json({ error: true, message: "Image URL is required" });
         }
+        const urlArr = imgUrl.split("/");
+        const imageName = urlArr[urlArr.length - 1].split(".")[0];
+        if (!imageName) {
+            return response.status(400).json({ error: true, message: "Invalid image URL" });
+        }
+        const res = await cloudinary.uploader.destroy(imageName);
+        return response.status(200).send(res);
+    } catch (error) {
+        return response.status(500).json({ message: error.message || error, error: true, success: false });
+    }
 }
-
-
 
 export async function deleteSlide(request, response) {
-    const slide = await HomeSliderModel.findById(request.params.id);
-    const images = slide.images;
-    let img="";
-    for (img of images) {
-        const imgUrl = img;
-        const urlArr = imgUrl.split("/");
-        const image = urlArr[urlArr.length - 1];
-
-        const imageName = image.split(".")[0];
-
-        if (imageName) {
-            cloudinary.uploader.destroy(imageName, (error, result) => {
-                // console.log(error, result);
-            });
-        }
-
-    }
-
-
-
-    const deletedSlide = await HomeSliderModel.findByIdAndDelete(request.params.id);
-    if (!deletedSlide) {
-        response.status(404).json({
-            message: "slide not found!",
-            success: false,
-            error: true
-        });
-    }
-
-  return  response.status(200).json({
-        success: true,
-        error: false,
-        message: "slide Deleted!",
-    });
-}
-
-
-
-export async function updatedSlide(request, response){
- 
-    const slide = await HomeSliderModel.findByIdAndUpdate(
-        request.params.id,
-        {
-          images: imagesArr.length>0 ? imagesArr[0] : request.body.images,
-        },
-        { new: true }
-      );
-
-      if (!slide) {
-        return response.status(500).json({
-          message: "slide cannot be updated!",
-          success: false,
-          error:true
-        });
-      }
-
-
-      imagesArr = [];
-      
-      response.status(200).json({
-        error:false,
-        success:true,
-        slide:slide,
-        message:"slide updated successfully"
-      })
-    
-}
-
-
-
-
-
-//delete multiple 
-export async function deleteMultipleSlides(request, response) {
-    const { ids } = request.body;
-
-
-    if (!ids || !Array.isArray(ids)) {
-        return res.status(400).json({ error: true, success: false, message: 'Invalid input' });
-    }
-
-
-    for(let i=0; i<ids?.length; i++){
-        const slide = await HomeSliderModel.findById(ids[i]);
-
-        const images = slide.images;
-
-        let img = "";
-        for (img of images) {
-            const imgUrl = img;
-            const urlArr = imgUrl.split("/");
-            const image = urlArr[urlArr.length - 1];
-    
-            const imageName = image.split(".")[0];
-    
-            if (imageName) {
-                cloudinary.uploader.destroy(imageName, (error, result) => {
-                    // console.log(error, result);
-                });
-            }
-    
-    
-        }
-        
-    }
-
     try {
-        await HomeSliderModel.deleteMany({ _id: { $in: ids } });
-        return response.status(200).json({
-            message: "slide delete successfully",
-            error: false,
-            success: true
-        })
-
+        const slide = await HomeSliderModel.findById(request.params.id);
+        if (!slide) {
+            return response.status(404).json({ message: "Slide not found!", success: false, error: true });
+        }
+        const images = slide.images || [];
+        for (const img of images) {
+            const urlArr = img.split("/");
+            const imageName = urlArr[urlArr.length - 1].split(".")[0];
+            if (imageName) {
+                cloudinary.uploader.destroy(imageName, () => {});
+            }
+        }
+        await HomeSliderModel.findByIdAndDelete(request.params.id);
+        return response.status(200).json({ success: true, error: false, message: "Slide Deleted!" });
     } catch (error) {
-        return response.status(500).json({
-            message: error.message || error,
-            error: true,
-            success: false
-        })
+        return response.status(500).json({ message: error.message || error, error: true, success: false });
     }
+}
 
+export async function updatedSlide(request, response) {
+    try {
+        const slide = await HomeSliderModel.findByIdAndUpdate(
+            request.params.id,
+            { ...request.body },
+            { new: true }
+        );
+        if (!slide) {
+            return response.status(500).json({ message: "slide cannot be updated!", success: false, error: true });
+        }
+        return response.status(200).json({ error: false, success: true, slide: slide, message: "slide updated successfully" });
+    } catch (error) {
+        return response.status(500).json({ message: error.message || error, error: true, success: false });
+    }
+}
+
+export async function deleteMultipleSlides(request, response) {
+    try {
+        const { ids } = request.body;
+        if (!ids || !Array.isArray(ids)) {
+            return response.status(400).json({ error: true, success: false, message: 'Invalid input' });
+        }
+        for (const id of ids) {
+            const slide = await HomeSliderModel.findById(id);
+            if (slide) {
+                const images = slide.images || [];
+                for (const img of images) {
+                    const urlArr = img.split("/");
+                    const imageName = urlArr[urlArr.length - 1].split(".")[0];
+                    if (imageName) {
+                        cloudinary.uploader.destroy(imageName, () => {});
+                    }
+                }
+            }
+        }
+        await HomeSliderModel.deleteMany({ _id: { $in: ids } });
+        return response.status(200).json({ message: "slides deleted successfully", error: false, success: true });
+    } catch (error) {
+        return response.status(500).json({ message: error.message || error, error: true, success: false });
+    }
 }

@@ -7,16 +7,9 @@ import VerificationEmail from '../utils/verifyEmailTemplate.js';
 import generatedAccessToken from '../utils/generatedAccessToken.js';
 import genertedRefreshToken from '../utils/generatedRefreshToken.js';
 
-import { v2 as cloudinary } from 'cloudinary';
+import cloudinary from '../config/cloudinaryConfig.js';
 import fs from 'fs';
 import ReviewModel from '../models/reviews.model.js.js';
-
-cloudinary.config({
-    cloud_name: process.env.cloudinary_Config_Cloud_Name,
-    api_key: process.env.cloudinary_Config_api_key,
-    api_secret: process.env.cloudinary_Config_api_secret,
-    secure: true,
-});
 
 
 export async function registerUserController(request, response) {
@@ -45,7 +38,7 @@ export async function registerUserController(request, response) {
         const verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
 
 
-        const salt = await bcryptjs.genSalt(10);
+        const salt = await bcryptjs.genSalt(12);
         const hashPassword = await bcryptjs.hash(password, salt);
 
         user = new UserModel({
@@ -339,14 +332,14 @@ export async function logoutController(request, response) {
 
 
 //image upload
-var imagesArr = [];
 export async function userAvatarController(request, response) {
     try {
-        imagesArr = [];
-
-        const userId = request.userId;  //auth middleware
+        const userId = request.userId;
         const image = request.files;
 
+        if (!image || image.length === 0) {
+            return response.status(400).json({ message: "No files uploaded", error: true, success: false });
+        }
 
         const user = await UserModel.findOne({ _id: userId });
 
@@ -358,9 +351,6 @@ export async function userAvatarController(request, response) {
             })
         }
 
-
-
-
         //first remove image from cloudinary
         const imgUrl = user.avatar;
 
@@ -370,12 +360,7 @@ export async function userAvatarController(request, response) {
         const imageName = avatar_image.split(".")[0];
 
         if (imageName) {
-            const res = await cloudinary.uploader.destroy(
-                imageName,
-                (error, result) => {
-                    // console.log(error, res)
-                }
-            );
+            await cloudinary.uploader.destroy(imageName);
         }
 
         const options = {
@@ -384,24 +369,18 @@ export async function userAvatarController(request, response) {
             overwrite: false,
         };
 
-        for (let i = 0; i < image?.length; i++) {
+        const results = await Promise.all(image.map(async (file) => {
+            const result = await cloudinary.uploader.upload(file.path, options);
+            try { fs.unlinkSync(file.path); } catch (e) { /* ignore */ }
+            return result.secure_url;
+        }));
 
-            const img = await cloudinary.uploader.upload(
-                image[i].path,
-                options,
-                function (error, result) {
-                    imagesArr.push(result.secure_url);
-                    fs.unlinkSync(`uploads/${request.files[i].filename}`);
-                }
-            );
-        }
-
-        user.avatar = imagesArr[0];
+        user.avatar = results[0];
         await user.save();
 
         return response.status(200).json({
             _id: userId,
-            avtar: imagesArr[0]
+            avtar: results[0]
         });
 
     } catch (error) {
@@ -430,7 +409,7 @@ export async function removeImageFromCloudinary(request, response) {
         );
 
         if (res) {
-            response.status(200).send(res);
+            return response.status(200).send(res);
         }
     }
 
@@ -639,7 +618,7 @@ export async function resetpassword(request, response) {
             })
         }
 
-        const salt = await bcryptjs.genSalt(10);
+        const salt = await bcryptjs.genSalt(12);
         const hashPassword = await bcryptjs.hash(confirmPassword, salt);
 
         user.password = hashPassword;
@@ -694,7 +673,7 @@ export async function changePasswordController(request, response) {
             })
         }
 
-        const salt = await bcryptjs.genSalt(10);
+        const salt = await bcryptjs.genSalt(12);
         const hashPassword = await bcryptjs.hash(confirmPassword, salt);
 
         user.password = hashPassword;
@@ -794,6 +773,25 @@ export async function userDetails(request, response) {
     }
 }
 
+
+//review image upload (public - no auth required)
+export async function uploadReviewImages(request, response) {
+    try {
+        const image = request.files;
+        if (!image || image.length === 0) {
+            return response.status(400).json({ message: "No files uploaded", error: true, success: false });
+        }
+        const options = { use_filename: true, unique_filename: false, overwrite: false };
+        const results = await Promise.all(image.map(async (file) => {
+            const result = await cloudinary.uploader.upload(file.path, options);
+            try { fs.unlinkSync(file.path); } catch (e) { /* ignore */ }
+            return result.secure_url;
+        }));
+        return response.status(200).json({ images: results });
+    } catch (error) {
+        return response.status(500).json({ message: error.message || error, error: true, success: false });
+    }
+}
 
 //review controller
 export async function addReview(request, response) {
@@ -1037,9 +1035,9 @@ export async function getAllUsers(request, response) {
     try {
         const { page, limit } = request.query;
 
-        const totalUsers = await UserModel.find();
+        const totalUsers = await UserModel.find().select('-password -token -otp');
 
-        const users = await UserModel.find().sort({ createdAt: -1 }).skip((page - 1) * limit).limit(parseInt(limit));
+        const users = await UserModel.find().select('-password -token -otp').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(parseInt(limit));
 
         const total = await UserModel.countDocuments(users);
 
@@ -1087,7 +1085,7 @@ export async function deleteUser(request, response) {
     const deletedUser = await UserModel.findByIdAndDelete(request.params.id);
 
     if (!deletedUser) {
-        response.status(404).json({
+        return response.status(404).json({
             message: "User not deleted!",
             success: false,
             error: true
@@ -1262,11 +1260,11 @@ export async function subscribeNewsletter(request, response) {
             status: "active"
         });
 
-        await sendEmailFun(
-            email,
-            "Welcome to Our Newsletter!",
-            `Thank you for subscribing to our newsletter. You'll receive updates about special discounts and latest news.`,
-            `
+        await sendEmailFun({
+            sendTo: email,
+            subject: "Welcome to Our Newsletter!",
+            text: `Thank you for subscribing to our newsletter. You'll receive updates about special discounts and latest news.`,
+            html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                 <h2 style="color: #1a1a2e;">Welcome to Our Newsletter!</h2>
                 <p>Thank you for subscribing to our newsletter.</p>
@@ -1279,7 +1277,7 @@ export async function subscribeNewsletter(request, response) {
                 <p style="margin-top: 20px;">Best regards,<br>The Team</p>
             </div>
             `
-        );
+        });
 
         return response.json({
             message: "Successfully subscribed to newsletter",

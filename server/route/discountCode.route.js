@@ -5,8 +5,8 @@ import { createDiscountCode, getDiscountCodes, getDiscountCode, updateDiscountCo
 const discountCodeRouter = Router();
 
 discountCodeRouter.post('/create', auth, createDiscountCode);
-discountCodeRouter.get('/', getDiscountCodes);
-discountCodeRouter.get('/:id', getDiscountCode);
+discountCodeRouter.get('/', auth, getDiscountCodes);
+discountCodeRouter.get('/:id', auth, getDiscountCode);
 discountCodeRouter.put('/:id', auth, updateDiscountCode);
 discountCodeRouter.delete('/:id', auth, deleteDiscountCode);
 discountCodeRouter.post('/validate', validateDiscountCode);

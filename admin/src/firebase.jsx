@@ -18,5 +18,17 @@ const firebaseConfig = {
   appId: VITE_FIREBASE_APP_APP_ID
 };
 
-// Initialize Firebase
-export const firebaseApp = initializeApp(firebaseConfig);
+const isFirebaseConfigValid = [
+  VITE_FIREBASE_APP_API_KEY,
+  VITE_FIREBASE_APP_AUTH_DOMAIN,
+  VITE_FIREBASE_APP_PROJECT_ID,
+  VITE_FIREBASE_APP_STORAGE_BUCKET,
+  VITE_FIREBASE_APP_MESSAGING_SENDER_ID,
+  VITE_FIREBASE_APP_APP_ID
+].every(Boolean);
+
+export const firebaseApp = isFirebaseConfigValid ? initializeApp(firebaseConfig) : null;
+
+if (!isFirebaseConfigValid) {
+  console.warn("Firebase config is missing or invalid. Firebase features are disabled.");
+}

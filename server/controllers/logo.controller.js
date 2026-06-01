@@ -1,211 +1,89 @@
 import LogoModel from '../models/logo.model.js';
-
-import { v2 as cloudinary } from 'cloudinary';
+import cloudinary from '../config/cloudinaryConfig.js';
 import fs from 'fs';
 
-
-cloudinary.config({
-    cloud_name: process.env.cloudinary_Config_Cloud_Name,
-    api_key: process.env.cloudinary_Config_api_key,
-    api_secret: process.env.cloudinary_Config_api_secret,
-    secure: true,
-});
-
-
-//image upload
-var imagesArr = [];
 export async function uploadImages(request, response) {
     try {
-        imagesArr = [];
-
         const image = request.files;
-
-
-        const options = {
-            use_filename: true,
-            unique_filename: false,
-            overwrite: false,
-        };
-
-        for (let i = 0; i < image?.length; i++) {
-
-            const img = await cloudinary.uploader.upload(
-                image[i].path,
-                options,
-                function (error, result) {
-                    imagesArr.push(result.secure_url);
-                    fs.unlinkSync(`uploads/${request.files[i].filename}`);
-                }
-            );
+        if (!image || image.length === 0) {
+            return response.status(400).json({ message: "No files uploaded", error: true, success: false });
         }
-
-        return response.status(200).json({
-            images: imagesArr
-        });
-
+        const options = { use_filename: true, unique_filename: false, overwrite: false };
+        const results = await Promise.all(image.map(async (file) => {
+            const result = await cloudinary.uploader.upload(file.path, options);
+            try { fs.unlinkSync(file.path); } catch (e) { /* ignore */ }
+            return result.secure_url;
+        }));
+        return response.status(200).json({ images: results });
     } catch (error) {
-        return response.status(500).json({
-            message: error.message || error,
-            error: true,
-            success: false
-        })
+        return response.status(500).json({ message: error.message || error, error: true, success: false });
     }
 }
 
-
-
-//add logo
 export async function addLogo(request, response) {
     try {
+        const images = request.body.images || [];
         let logoItem = new LogoModel({
-            logo: imagesArr[0],
+            logo: images[0] || '',
         });
-
-        if (!logoItem) {
-            return response.status(500).json({
-                message: "Logo not added",
-                error: true,
-                success: false
-            })
-        }
-
         logoItem = await logoItem.save();
-
-        imagesArr = [];
-
-        return response.status(200).json({
-            message: "logo added",
-            error: false,
-            success: true,
-            logo: logoItem
-        })
-
+        return response.status(200).json({ message: "logo added", error: false, success: true, logo: logoItem });
     } catch (error) {
-        return response.status(500).json({
-            message: error.message || error,
-            error: true,
-            success: false
-        })
+        return response.status(500).json({ message: error.message || error, error: true, success: false });
     }
 }
 
-
-
-
-
-//get logo
 export async function getLogo(request, response) {
     try {
         const logo = await LogoModel.find();
-
-        if (!logo) {
-            response.status(500).json({
-                error: true,
-                success: false
-            })
-        }
-
-
-        return response.status(200).json({
-            error: false,
-            success: true,
-            logo: logo
-        })
-
+        return response.status(200).json({ error: false, success: true, logo: logo });
     } catch (error) {
-        return response.status(500).json({
-            message: error.message || error,
-            error: true,
-            success: false
-        })
+        return response.status(500).json({ message: error.message || error, error: true, success: false });
     }
 }
 
 export async function getLogoById(request, response) {
     try {
         const logo = await LogoModel.findById(request.params.id);
-
-
         if (!logo) {
-            response.status(500)
-                .json(
-                    {
-                        message: "The logo with the given ID was not found.",
-                        error: true,
-                        success: false
-                    }
-                );
+            return response.status(404).json({ message: "The logo with the given ID was not found.", error: true, success: false });
         }
-
-
-        return response.status(200).json({
-            error: false,
-            success: true,
-            logo: logo
-        })
-
+        return response.status(200).json({ error: false, success: true, logo: logo });
     } catch (error) {
-        return response.status(500).json({
-            message: error.message || error,
-            error: true,
-            success: false
-        })
+        return response.status(500).json({ message: error.message || error, error: true, success: false });
     }
 }
-
 
 export async function updatedLogo(request, response) {
-    const logo = await LogoModel.findByIdAndUpdate(
-        request.params.id,
-        {
-            logo: imagesArr.length > 0 ? imagesArr[0] : request.body.logo,
-        },
-        { new: true }
-    );
-
-    if (!logo) {
-        return response.status(500).json({
-            message: "logo cannot be updated!",
-            success: false,
-            error: true
-        });
+    try {
+        const logo = await LogoModel.findByIdAndUpdate(
+            request.params.id,
+            { ...request.body },
+            { new: true }
+        );
+        if (!logo) {
+            return response.status(500).json({ message: "logo cannot be updated!", success: false, error: true });
+        }
+        return response.status(200).json({ error: false, success: true, logo: logo, message: "logo updated successfully" });
+    } catch (error) {
+        return response.status(500).json({ message: error.message || error, error: true, success: false });
     }
-
-
-    imagesArr = [];
-
-    response.status(200).json({
-        error: false,
-        success: true,
-        logo: logo,
-        message: "logo updated successfully"
-    })
-
 }
 
-
-
 export async function removeImageFromCloudinary(request, response) {
-  
-    const imgUrl = request.query.img;
-
-      
-        const urlArr = imgUrl.split("/");
-        const image = urlArr[urlArr.length - 1];
-    
-        const imageName = image.split(".")[0];
-
-    
-        if (imageName) {
-            const res = await cloudinary.uploader.destroy(
-                imageName,
-                (error, result) => {
-                    // console.log(error, res)
-                }
-            );
-    
-            if (res) {
-                response.status(200).send(res);
-            }
+    try {
+        const imgUrl = request.query.img;
+        if (!imgUrl) {
+            return response.status(400).json({ error: true, message: "Image URL is required" });
         }
+        const urlArr = imgUrl.split("/");
+        const imageName = urlArr[urlArr.length - 1].split(".")[0];
+        if (!imageName) {
+            return response.status(400).json({ error: true, message: "Invalid image URL" });
+        }
+        const res = await cloudinary.uploader.destroy(imageName);
+        return response.status(200).send(res);
+    } catch (error) {
+        return response.status(500).json({ message: error.message || error, error: true, success: false });
+    }
 }

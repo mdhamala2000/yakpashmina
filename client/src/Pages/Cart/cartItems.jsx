@@ -56,8 +56,8 @@ const CartItems = (props) => {
         <Link to={`/product/${props?.item?.productId}`}>
           <div className="relative overflow-hidden rounded-lg aspect-square">
             <img
-              src={props?.item?.image}
-              alt={props?.item?.productTitle}
+              src={props?.item?.image || 'https://via.placeholder.com/100x100?text=Product'}
+              alt={props?.item?.productTitle || 'Product'}
               className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
             />
           </div>
@@ -70,9 +70,15 @@ const CartItems = (props) => {
             <p className="text-xs sm:text-sm text-gray-500 font-medium">{props?.item?.brand}</p>
             <h3 className="text-sm sm:text-base font-semibold text-gray-800 truncate pr-6">
               <Link to={`/product/${props?.item?.productId}`} className="hover:text-primary transition-colors">
-                {props?.item?.productTitle?.length > 50 ? props?.item?.productTitle?.substring(0, 50) + '...' : props?.item?.productTitle}
+                {(props?.item?.productTitle || 'Product')?.length > 50 
+                  ? (props?.item?.productTitle || 'Product')?.substring(0, 50) + '...' 
+                  : (props?.item?.productTitle || 'Product')}
               </Link>
             </h3>
+
+            {props?.item?.variantSku && (
+              <p className="text-xs text-gray-400 mt-0.5">SKU: {props?.item?.variantSku}</p>
+            )}
 
             <div className="flex items-center gap-3 mt-2 flex-wrap">
 <span className="text-lg font-bold text-primary">

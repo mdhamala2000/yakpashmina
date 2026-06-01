@@ -1,16 +1,17 @@
-import React, { useContext, useState } from "react";
+import React, { useContext } from "react";
 import Box from "@mui/material/Box";
 import Drawer from "@mui/material/Drawer";
 import { IoCloseSharp } from "react-icons/io5";
 import { CategoryCollapse } from "../../CategoryCollapse";
 import { Button } from "@mui/material";
 import { MyContext } from "../../../App";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { fetchDataFromApi } from "../../../utils/api";
 
 const CategoryPanel = (props) => {
 
   const context = useContext(MyContext);
+  const navigate = useNavigate();
 
   const toggleDrawer = (newOpen) => () => {
     props.setIsOpenCatPanel(newOpen);
@@ -22,7 +23,7 @@ const CategoryPanel = (props) => {
     <Box sx={{ width: 250 }} role="presentation" className="categoryPanel">
 
       <div className="p-3">
-        <img src={localStorage.getItem('logo')} className="w-[170px]" />
+        <img src={localStorage.getItem('logo')} alt="White Yak Pashmina" className="w-[170px]" />
       </div>
 
       <h3 className="p-3 text-[16px] font-[500] flex items-center justify-between">
@@ -59,7 +60,7 @@ const CategoryPanel = (props) => {
               context.setUserData(null);
               context?.setCartData([]);
               context?.setMyListData([]);
-              history("/");
+              navigate("/");
             }
 
 

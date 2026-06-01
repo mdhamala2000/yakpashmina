@@ -1,70 +1,30 @@
 import BlogModel from '../models/blog.model.js';
-
-import { v2 as cloudinary } from 'cloudinary';
+import cloudinary from '../config/cloudinaryConfig.js';
 import fs from 'fs';
 
-
-cloudinary.config({
-    cloud_name: process.env.cloudinary_Config_Cloud_Name,
-    api_key: process.env.cloudinary_Config_api_key,
-    api_secret: process.env.cloudinary_Config_api_secret,
-    secure: true,
-});
-
-
-//image upload
-var imagesArr = [];
 export async function uploadImages(request, response) {
     try {
-        imagesArr = [];
-
         const image = request.files;
-
-
-        const options = {
-            use_filename: true,
-            unique_filename: false,
-            overwrite: false,
-        };
-
-        for (let i = 0; i < image?.length; i++) {
-            try {
-                const img = await cloudinary.uploader.upload(
-                    image[i].path,
-                    options
-                );
-                imagesArr.push(img.secure_url);
-                
-                // Clean up local file
-                if (fs.existsSync(image[i].path)) {
-                    fs.unlinkSync(image[i].path);
-                }
-            } catch (uploadError) {
-                console.error(`Error uploading image ${i}:`, uploadError);
-            }
+        if (!image || image.length === 0) {
+            return response.status(400).json({ message: "No files uploaded", error: true, success: false });
         }
-
-        return response.status(200).json({
-            images: imagesArr
-        });
-
+        const options = { use_filename: true, unique_filename: false, overwrite: false };
+        const results = await Promise.all(image.map(async (file) => {
+            const result = await cloudinary.uploader.upload(file.path, options);
+            try { fs.unlinkSync(file.path); } catch (e) { /* ignore */ }
+            return result.secure_url;
+        }));
+        return response.status(200).json({ images: results });
     } catch (error) {
-        return response.status(500).json({
-            message: error.message || error,
-            error: true,
-            success: false
-        })
+        return response.status(500).json({ message: error.message || error, error: true, success: false });
     }
 }
 
-
-
-//add blog
 export async function addBlog(request, response) {
     try {
         let blog = new BlogModel({
             title: request.body.title,
-            images: imagesArr,
+            images: request.body.images || [],
             description: request.body.description,
             category: request.body.category || 'General',
             excerpt: request.body.excerpt || '',
@@ -76,201 +36,81 @@ export async function addBlog(request, response) {
             readTime: request.body.readTime || '5 min read',
             likes: 0
         });
-
-        if (!blog) {
-            return response.status(500).json({
-                message: "blog not created",
-                error: true,
-                success: false
-            })
-        }
-
         blog = await blog.save();
-
-        imagesArr = [];
-
-        return response.status(200).json({
-            message: "blog created",
-            error: false,
-            success: true,
-            blog: blog
-        })
-
+        return response.status(200).json({ message: "blog created", error: false, success: true, blog: blog });
     } catch (error) {
-        return response.status(500).json({
-            message: error.message || error,
-            error: true,
-            success: false
-        })
+        return response.status(500).json({ message: error.message || error, error: true, success: false });
     }
 }
 
-
-
 export async function getBlogs(request, response) {
     try {
-
         const page = parseInt(request.query.page) || 1;
         const perPage = parseInt(request.query.perPage) || 100;
-
-
         const totalPosts = await BlogModel.countDocuments();
         const totalPages = Math.ceil(totalPosts / perPage);
-
         if (page > totalPages) {
-            return response.status(404).json(
-                {
-                    message: "Page not found",
-                    success: false,
-                    error: true
-                }
-            );
+            return response.status(404).json({ message: "Page not found", success: false, error: true });
         }
-
-
         const blogs = await BlogModel.find()
             .skip((page - 1) * perPage)
             .limit(perPage)
             .exec();
-
-        if (!blogs) {
-            response.status(500).json({
-                error: true,
-                success: false
-            })
-        }
-
         return response.status(200).json({
-            error: false,
-            success: true,
-            blogs: blogs,
-            totalPages: totalPages,
-            page: page,
-        })
-
-
+            error: false, success: true, blogs: blogs,
+            totalPages: totalPages, page: page,
+        });
     } catch (error) {
-        return response.status(500).json({
-            message: error.message || error,
-            error: true,
-            success: false
-        })
+        return response.status(500).json({ message: error.message || error, error: true, success: false });
     }
 }
-
 
 export async function getBlog(request, response) {
     try {
         const blog = await BlogModel.findById(request.params.id);
-
-
         if (!blog) {
-            response.status(500)
-                .json(
-                    {
-                        message: "The blog with the given ID was not found.",
-                        error: true,
-                        success: false
-                    }
-                );
+            return response.status(404).json({ message: "The blog with the given ID was not found.", error: true, success: false });
         }
-
-
-        return response.status(200).json({
-            error: false,
-            success: true,
-            blog: blog
-        })
-
+        return response.status(200).json({ error: false, success: true, blog: blog });
     } catch (error) {
-        return response.status(500).json({
-            message: error.message || error,
-            error: true,
-            success: false
-        })
+        return response.status(500).json({ message: error.message || error, error: true, success: false });
     }
 }
-
 
 export async function deleteBlog(request, response) {
-    const blog = await BlogModel.findById(request.params.id);
-    const images = blog.images;
-    let img = "";
-    for (img of images) {
-        const imgUrl = img;
-        const urlArr = imgUrl.split("/");
-        const image = urlArr[urlArr.length - 1];
-
-        const imageName = image.split(".")[0];
-
-        if (imageName) {
-            cloudinary.uploader.destroy(imageName, (error, result) => {
-                // console.log(error, result);
-            });
+    try {
+        const blog = await BlogModel.findById(request.params.id);
+        if (!blog) {
+            return response.status(404).json({ message: "blog not found!", success: false, error: true });
         }
-
+        const images = blog.images || [];
+        for (const img of images) {
+            const urlArr = img.split("/");
+            const imageName = urlArr[urlArr.length - 1].split(".")[0];
+            if (imageName) {
+                cloudinary.uploader.destroy(imageName, () => {});
+            }
+        }
+        await BlogModel.findByIdAndDelete(request.params.id);
+        return response.status(200).json({ success: true, error: false, message: "Blog Deleted!" });
+    } catch (error) {
+        return response.status(500).json({ message: error.message || error, error: true, success: false });
     }
-    const deletedBlog = await BlogModel.findByIdAndDelete(request.params.id);
-    if (!deletedBlog) {
-        response.status(404).json({
-            message: "blog not found!",
-            success: false,
-            error: true
-        });
-    }
-
-    response.status(200).json({
-        success: true,
-        error: false,
-        message: "blog Deleted!",
-    });
 }
 
-
-
 export async function updateBlog(request, response) {
-    const updateData = {
-        title: request.body.title,
-        description: request.body.description,
-    };
-    
-    if (imagesArr.length > 0) {
-        updateData.images = imagesArr;
-    } else if (request.body.images) {
-        updateData.images = request.body.images;
+    try {
+        const updateData = { ...request.body };
+        const blog = await BlogModel.findByIdAndUpdate(
+            request.params.id,
+            updateData,
+            { new: true }
+        );
+        if (!blog) {
+            return response.status(500).json({ message: "Blog cannot be updated!", success: false, error: true });
+        }
+        return response.status(200).json({ error: false, success: true, blog: blog, message: "blog updated successfully" });
+    } catch (error) {
+        return response.status(500).json({ message: error.message || error, error: true, success: false });
     }
-    
-    if (request.body.category) updateData.category = request.body.category;
-    if (request.body.excerpt) updateData.excerpt = request.body.excerpt;
-    if (request.body.author) updateData.author = request.body.author;
-    if (request.body.authorBio) updateData.authorBio = request.body.authorBio;
-    if (request.body.authorAvatar) updateData.authorAvatar = request.body.authorAvatar;
-    if (request.body.featured !== undefined) updateData.featured = request.body.featured;
-    if (request.body.tags) updateData.tags = request.body.tags;
-    if (request.body.readTime) updateData.readTime = request.body.readTime;
-
-    const blog = await BlogModel.findByIdAndUpdate(
-        request.params.id,
-        updateData,
-        { new: true }
-    );
-
-    if (!blog) {
-        return response.status(500).json({
-            message: "Category cannot be updated!",
-            success: false,
-            error: true
-        });
-    }
-
-
-    imagesArr = [];
-
-    response.status(200).json({
-        error: false,
-        success: true,
-        blog: blog,
-        message: "blog updated successfully"
-    })
-
 }

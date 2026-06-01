@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { FaArrowLeft, FaCalendarAlt, FaUser, FaHeart, FaBookmark, FaShareAlt, FaTag, FaArrowRight, FaQuoteLeft } from 'react-icons/fa';
 import { fetchDataFromApi } from '../../utils/api';
+import { sanitizeHtml } from '../../utils/sanitize';
 
 const BlogDetails = () => {
   const { id } = useParams();
@@ -161,7 +162,7 @@ const BlogDetails = () => {
 
                 {/* Content */}
                 <div className="prose prose-slate max-w-none text-slate-600 leading-relaxed [&_p]:mb-4 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:mt-6 [&_h2]:mb-3 [&_h2]:text-slate-900 [&_img]:rounded-xl [&_img]:my-4 [&_img]:w-full [&_ul]:pl-5 [&_ul]:mb-4 [&_ul]:list-disc [&_ol]:pl-5 [&_ol]:mb-4 [&_ol]:list-decimal [&_a]:text-orange-500 [&_a]:underline">
-                  <div dangerouslySetInnerHTML={{ __html: blog.description || '<p>No content available.</p>' }} />
+                  <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(blog.description) || '<p>No content available.</p>' }} />
                 </div>
               </div>
             </article>

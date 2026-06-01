@@ -9,7 +9,6 @@ import axios from 'axios';
 import { useNavigate } from "react-router-dom";
 import CircularProgress from '@mui/material/CircularProgress';
 import { useCurrency } from "../../context/CurrencyContext";
-import { init } from '@airwallex/components-sdk';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import Box from '@mui/material/Box';
@@ -19,12 +18,8 @@ import StepLabel from '@mui/material/StepLabel';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
-
-const VITE_APP_AIRWALLEX_API_KEY = import.meta.env.VITE_APP_AIRWALLEX_API_KEY;
-const VITE_APP_AIRWALLEX_CLIENT_ID = import.meta.env.VITE_APP_AIRWALLEX_CLIENT_ID;
 const VITE_APP_PAYPAL_CLIENT_ID = import.meta.env.VITE_APP_PAYPAL_CLIENT_ID;
 const VITE_API_URL = import.meta.env.VITE_API_URL;
-const VITE_APP_AIRWALLEX_ENV = import.meta.env.VITE_APP_AIRWALLEX_ENV || 'demo';
 
 let stripePromise = null;
 const getStripe = (key) => {
@@ -46,7 +41,7 @@ const cardElementOptions = {
   }
 };
 
-const StripeCardForm = ({ onError, onComplete, selectedAddressData }) => {
+const StripeCardForm = ({ onError, onComplete, selectedAddressData, onPaymentMethodReady }) => {
   const stripe = useStripe();
   const elements = useElements();
   const [processing, setProcessing] = useState(false);
@@ -117,6 +112,7 @@ const StripeCardForm = ({ onError, onComplete, selectedAddressData }) => {
       setProcessing(false);
     } else {
       onComplete(true);
+      if (onPaymentMethodReady) onPaymentMethodReady(paymentMethod.id);
       setProcessing(false);
     }
   };
@@ -147,107 +143,6 @@ const StripeCardForm = ({ onError, onComplete, selectedAddressData }) => {
   );
 };
 
-const AirwallexCardForm = ({ onCardComplete }) => {
-  const [cardNumber, setCardNumber] = useState('');
-  const [expiry, setExpiry] = useState('');
-  const [cvc, setCvc] = useState('');
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-
-  const formatCardNumber = (value) => {
-    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-    const matches = v.match(/\d{4,16}/g);
-    const match = (matches && matches[0]) || '';
-    const parts = [];
-    for (let i = 0, len = match.length; i < len; i += 4) {
-      parts.push(match.substring(i, i + 4));
-    }
-    return parts.length ? parts.join(' ') : value;
-  };
-
-  const formatExpiry = (value) => {
-    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-    if (v.length >= 2) {
-      return v.substring(0, 2) + '/' + v.substring(2, 4);
-    }
-    return v;
-  };
-
-  const handleCardChange = (field, value) => {
-    let formattedValue = value;
-    if (field === 'cardNumber') {
-      formattedValue = formatCardNumber(value);
-      setCardNumber(formattedValue);
-      const isComplete = formattedValue.replace(/\s/g, '').length === 16;
-      onCardComplete(isComplete && expiry.length === 5 && cvc.length >= 3);
-    } else if (field === 'expiry') {
-      formattedValue = formatExpiry(value);
-      setExpiry(formattedValue);
-      const isComplete = formattedValue.length === 5 && cvc.length >= 3;
-      onCardComplete(isComplete && cardNumber.replace(/\s/g, '').length === 16);
-    } else if (field === 'cvc') {
-      setCvc(value);
-      const isComplete = value.length >= 3 && expiry.length === 5 && cardNumber.replace(/\s/g, '').length === 16;
-      onCardComplete(isComplete);
-    }
-  };
-
-  return (
-    <div className="space-y-2.5 lg:space-y-3">
-      <div>
-        <input
-          type="text"
-          placeholder="Cardholder Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="w-full p-2.5 lg:p-3 border border-gray-200 rounded-lg text-xs lg:text-sm focus:border-slate-800 focus:ring-1 focus:ring-slate-800 outline-none"
-        />
-      </div>
-      <div>
-        <input
-          type="email"
-          placeholder="Email (optional)"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full p-2.5 lg:p-3 border border-gray-200 rounded-lg text-xs lg:text-sm focus:border-slate-800 focus:ring-1 focus:ring-slate-800 outline-none"
-        />
-      </div>
-      <div>
-        <input
-          type="text"
-          placeholder="Card Number"
-          value={cardNumber}
-          maxLength={19}
-          onChange={(e) => handleCardChange('cardNumber', e.target.value)}
-          className="w-full p-2.5 lg:p-3 border border-gray-200 rounded-lg text-xs lg:text-sm focus:border-slate-800 focus:ring-1 focus:ring-slate-800 outline-none"
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-2 lg:gap-3">
-        <input
-          type="text"
-          placeholder="MM/YY"
-          value={expiry}
-          maxLength={5}
-          onChange={(e) => handleCardChange('expiry', e.target.value)}
-          className="w-full p-2.5 lg:p-3 border border-gray-200 rounded-lg text-xs lg:text-sm focus:border-slate-800 focus:ring-1 focus:ring-slate-800 outline-none"
-        />
-        <input
-          type="text"
-          placeholder="CVC"
-          value={cvc}
-          maxLength={4}
-          onChange={(e) => handleCardChange('cvc', e.target.value)}
-          className="w-full p-2.5 lg:p-3 border border-gray-200 rounded-lg text-xs lg:text-sm focus:border-slate-800 focus:ring-1 focus:ring-slate-800 outline-none"
-        />
-      </div>
-      <p className="text-[10px] lg:text-xs text-gray-500 flex items-center gap-1">
-        <FaLock className="text-emerald-600" />
-        Your card details are securely processed by Airwallex
-      </p>
-    </div>
-  );
-};
-
 const Checkout = () => {
   const [userData, setUserData] = useState(null);
   const [isChecked, setIsChecked] = useState(0);
@@ -263,7 +158,6 @@ const Checkout = () => {
   const [shippingInfo, setShippingInfo] = useState(null);
   const [loadingShipping, setLoadingShipping] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
-  const [airwallexPayments, setAirwallexPayments] = useState(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('stripe');
   const [activeStep, setActiveStep] = useState(0);
   const [showPayPalMessage, setShowPayPalMessage] = useState(false);
@@ -277,18 +171,18 @@ const Checkout = () => {
   const [paypalConfig, setPaypalConfig] = useState({ clientId: '' });
   const [cardError, setCardError] = useState('');
   const [cardComplete, setCardComplete] = useState(false);
+  const [paymentMethodId, setPaymentMethodId] = useState(null);
   const [paypalLoaded, setPaypalLoaded] = useState(false);
   const [paypalError, setPaypalError] = useState(null);
   const [sdkReady, setSdkReady] = useState(false);
   const paypalClientId = "AQ3Qb-BP7ilZ3b1Kvdh34A1LbsZngYcrdnQKVSwNrofa55buPRA0aa8UDS9CACKybQ48vaPNczgzmz5T";
   const paypalRef = useRef(null);
-  const airwallexRef = useRef(null);
   const [addressForm, setAddressForm] = useState({
     address_line1: '', city: '', state: '', pincode: '', country: '', mobile: '', addressType: 'Home', landmark: ''
   });
 
   const context = useContext(MyContext);
-  const { convertPrice, currency, CURRENCIES } = useCurrency();
+  const { convertPrice, currency, CURRENCIES, exchangeRates } = useCurrency();
   const history = useNavigate();
 
   const steps = ['Address', 'Payment', 'Confirm'];
@@ -327,11 +221,9 @@ const Checkout = () => {
 
           // Check for PayPal and fetch config
           const paypalGateway = activeGateways.find(g => g.gatewayType === 'paypal');
-          console.log('PayPal Gateway:', paypalGateway);
           if (paypalGateway && paypalGateway.isActive) {
             try {
               const paypalRes = await fetchDataFromApi("/api/stripe/paypal-config");
-              console.log('PayPal Config Response:', paypalRes);
               if (paypalRes && paypalRes.clientId) {
                 setPaypalConfig({ clientId: paypalRes.clientId });
               }
@@ -347,10 +239,10 @@ const Checkout = () => {
     }
     
     setPaymentGateways([
-      { _id: "default-airwallex", gatewayType: "airwallex", isActive: true },
       { _id: "default-stripe", gatewayType: "stripe", isActive: true },
       { _id: "default-paypal", gatewayType: "paypal", isActive: true },
-      { _id: "default-bank_deposit", gatewayType: "bank_deposit", isActive: true }
+      { _id: "default-bank_deposit", gatewayType: "bank_deposit", isActive: true },
+      { _id: "default-airwallex", gatewayType: "airwallex", isActive: true }
     ]);
   };
 
@@ -361,9 +253,10 @@ const Checkout = () => {
     setIsloading(true);
     try {
       const finalTotalUSD = calculateFinalTotal();
-      const finalTotalInCurrency = convertPrice(finalTotalUSD);
-      const productsInCurrency = context?.cartData?.map(item => ({ ...item, price: convertPrice(parseFloat(item.price)), subTotal: convertPrice(parseFloat(item.price)) }));
-      const payLoad = { userId: userData._id, products: productsInCurrency, payment_method: "bank_deposit", delivery_address: selectedAddressData, totalAmt: parseFloat(finalTotalInCurrency), subTotal: parseFloat(convertPrice(totalAmountUSD)), shippingCost: parseFloat(convertPrice(shippingCost)), discountCode: appliedDiscount?.code || null, discountAmount: parseFloat(convertPrice(calculateDiscountAmount())), currency: currency };
+      const selectedCurrency = currency || 'USD';
+      const rate = exchangeRates[selectedCurrency] || 1;
+      const productsInCurrency = context?.cartData?.map(item => ({ ...item }));
+      const payLoad = { userId: userData._id, products: productsInCurrency, payment_method: "bank_deposit", delivery_address: selectedAddressData, totalAmt: parseFloat(finalTotalUSD), subTotal: parseFloat(totalAmountUSD), shippingCost: parseFloat(shippingCost), discountCode: appliedDiscount?.code || null, discountAmount: parseFloat(calculateDiscountAmount()), currency: selectedCurrency, currencyRate: rate };
       const res = await postData("/api/order/create", payLoad);
       if (res?.success) {
         if (appliedDiscount) await postData("/api/discountCode/apply", { code: appliedDiscount.code });
@@ -381,54 +274,80 @@ const Checkout = () => {
     if (!userData || userData?.address_details?.length === 0) { context.alertBox("error", "Please add address"); return; }
     if (!selectedAddress) { context.alertBox("error", "Please select address"); return; }
     if (!cardComplete) { context.alertBox("error", "Please validate card details first"); return; }
+    if (!paymentMethodId) { context.alertBox("error", "Please validate card details first"); return; }
     
     setProcessingPayment(true);
     setIsloading(true);
     
     try {
       const finalTotalUSD = calculateFinalTotal();
-      const finalTotalInCurrency = convertPrice(finalTotalUSD);
+      const selectedCurrency = currency || 'USD';
+      const rate = exchangeRates[selectedCurrency] || 1;
+      const finalTotalConverted = convertPrice(finalTotalUSD);
       
-      // Try real Stripe API
-      let paymentIntent = null;
-      let clientSecret = null;
+      // Create payment intent in selected currency
+      const intentRes = await axios.post(`${VITE_API_URL}/api/stripe/create-payment-intent`, {
+        amount: parseFloat(finalTotalConverted),
+        currency: selectedCurrency.toLowerCase()
+      }, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` },
+        withCredentials: true
+      });
       
-      try {
-        const intentRes = await axios.post(`${VITE_API_URL}/api/stripe/create-payment-intent`, {
-          amount: parseFloat(finalTotalInCurrency),
-          currency: (currency || 'USD').toLowerCase()
-        });
-        
-        if (intentRes.data?.success) {
-          paymentIntent = intentRes.data.paymentIntentId;
-          clientSecret = intentRes.data.clientSecret;
-        }
-      } catch (apiError) {
-        console.error('Stripe API Error:', apiError.response?.data || apiError.message);
+      if (!intentRes.data?.success) {
+        context.alertBox("error", "Failed to initiate payment. Please try again.");
+        setProcessingPayment(false);
+        setIsloading(false);
+        return;
       }
       
-      // If real payment failed, use simulation for testing
-      if (!paymentIntent) {
-        paymentIntent = `stripe_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
-        clientSecret = `test_secret_${paymentIntent}`;
+      const clientSecret = intentRes.data.clientSecret;
+      const paymentIntentId = intentRes.data.paymentIntentId;
+      
+      // Confirm the card payment - this actually charges the card
+      const stripe = await getStripe(stripeConfig.publishableKey);
+      if (!stripe) {
+        context.alertBox("error", "Stripe not initialized. Please refresh.");
+        setProcessingPayment(false);
+        setIsloading(false);
+        return;
       }
       
-      // Create order
-      const productsInCurrency = context?.cartData?.map(item => ({ ...item, price: convertPrice(parseFloat(item.price)), subTotal: convertPrice(parseFloat(item.price)) }));
+      const { error: confirmError, paymentIntent: confirmedIntent } = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: paymentMethodId
+      });
+      
+      if (confirmError) {
+        context.alertBox("error", confirmError.message || "Payment failed. Please try again.");
+        setProcessingPayment(false);
+        setIsloading(false);
+        return;
+      }
+      
+      if (confirmedIntent.status !== 'succeeded' && confirmedIntent.status !== 'processing') {
+        context.alertBox("error", `Payment ${confirmedIntent.status}. Please try again.`);
+        setProcessingPayment(false);
+        setIsloading(false);
+        return;
+      }
+      
+      // Payment confirmed - create order (send USD amounts + selected currency + rate)
+      const productsInCurrency = context?.cartData?.map(item => ({ ...item }));
       
       const payLoad = { 
         userId: userData._id, 
         products: productsInCurrency, 
         payment_method: "stripe",
-        paymentId: paymentIntent,
+        paymentId: paymentIntentId,
         payment_status: "PAID",
         delivery_address: selectedAddressData, 
-        totalAmt: parseFloat(finalTotalInCurrency),
-        subTotal: parseFloat(convertPrice(totalAmountUSD)), 
-        shippingCost: parseFloat(convertPrice(shippingCost)), 
+        totalAmt: parseFloat(finalTotalUSD),
+        subTotal: parseFloat(totalAmountUSD), 
+        shippingCost: parseFloat(shippingCost), 
         discountCode: appliedDiscount?.code || null, 
-        discountAmount: parseFloat(convertPrice(calculateDiscountAmount())), 
-        currency: currency 
+        discountAmount: parseFloat(calculateDiscountAmount()), 
+        currency: selectedCurrency,
+        currencyRate: rate
       };
       
       const res = await postData("/api/order/create", payLoad);
@@ -437,9 +356,7 @@ const Checkout = () => {
         await deleteData(`/api/cart/emptyCart/${userData._id}`);
         context?.getCartItems();
         localStorage.removeItem('appliedDiscount');
-        context.alertBox("success", paymentIntent.includes('TEST') 
-          ? "Order placed successfully! (Test Mode)"
-          : "Payment successful! Order placed.");
+        context.alertBox("success", "Payment successful! Order placed.");
         history("/order/success");
       } else { 
         context.alertBox("error", res?.message || "Failed to create order"); 
@@ -448,15 +365,91 @@ const Checkout = () => {
       }
     } catch (error) {
       console.error("Stripe payment error:", error);
-      context.alertBox("error", error.response?.data?.message || "Payment failed. Please try again.");
+      context.alertBox("error", error.response?.data?.message || error.message || "Payment failed. Please try again.");
       setProcessingPayment(false);
       setIsloading(false);
+    }
+  };
+
+  const handleAirwallexPayment = async () => {
+    if (!context?.cartData || context.cartData.length === 0) { context.alertBox('error', 'Your cart is empty!'); return; }
+    if (!userData || userData?.address_details?.length === 0) { context.alertBox("error", "Please add address"); return; }
+    if (!selectedAddress) { context.alertBox("error", "Please select address"); return; }
+    setProcessingPayment(true);
+    try {
+      const finalTotalUSD = calculateFinalTotal();
+      const selectedCurrency = currency || 'USD';
+      const rate = exchangeRates[selectedCurrency] || 1;
+      const finalTotalConverted = convertPrice(finalTotalUSD);
+      const res = await postData('/api/airwallex/create-intent', {
+        amount: parseFloat(finalTotalConverted),
+        currency: selectedCurrency
+      });
+      if (!res?.success) {
+        context.alertBox("error", res?.message || "Failed to initiate Airwallex payment.");
+        setProcessingPayment(false);
+        return;
+      }
+      const { intentId, clientSecret } = res.data;
+      if (!intentId || !clientSecret) {
+        context.alertBox("error", "Airwallex configuration error. Please try again.");
+        setProcessingPayment(false);
+        return;
+      }
+      const successUrl = `${window.location.origin}/order/airwallex-return`;
+      const env = 'demo';
+      const orderPayload = {
+        userId: userData._id,
+        products: context?.cartData?.map(item => ({ ...item })),
+        delivery_address: selectedAddressData,
+        totalAmt: parseFloat(finalTotalUSD),
+        subTotal: parseFloat(totalAmountUSD),
+        shippingCost: parseFloat(shippingCost),
+        discountCode: appliedDiscount?.code || null,
+        discountAmount: parseFloat(calculateDiscountAmount()),
+        currency: selectedCurrency,
+        currencyRate: rate
+      };
+      const cancelUrl = `${window.location.origin}/checkout`;
+      sessionStorage.setItem('airwallex_order_data', JSON.stringify(orderPayload));
+      sessionStorage.setItem('airwallex_intent_id', intentId);
+      const doRedirect = async () => {
+        const { payments } = await window.AirwallexComponentsSDK.init({
+          env,
+          enabledElements: ['payments']
+        });
+        payments.redirectToCheckout({
+          intent_id: intentId,
+          client_secret: clientSecret,
+          currency: selectedCurrency,
+          successUrl,
+          cancelUrl
+        });
+      };
+      if (window.AirwallexComponentsSDK) {
+        doRedirect();
+      } else {
+        const script = document.createElement('script');
+        script.src = 'https://static.airwallex.com/components/sdk/v1/index.js';
+        script.async = true;
+        script.onload = doRedirect;
+        script.onerror = () => {
+          context.alertBox("error", "Failed to load Airwallex SDK. Please try again.");
+          setProcessingPayment(false);
+        };
+        document.head.appendChild(script);
+      }
+    } catch (error) {
+      const msg = error.response?.data?.message || error.message || "Failed to initiate Airwallex payment.";
+      context.alertBox("error", msg);
+      setProcessingPayment(false);
     }
   };
 
   useEffect(() => {
     window.scrollTo(0, 0);
     fetchPaymentGateways();
+    
     const timer = setTimeout(() => {
       if (!context?.cartData || context.cartData.length === 0) {
         context?.alertBox('error', 'Your cart is empty! Please add some products.');
@@ -476,7 +469,7 @@ const Checkout = () => {
     const timer = setTimeout(() => {
       const cartItems = context?.cartData || [];
       const totalInUSD = cartItems.length !== 0 ?
-        cartItems?.map(item => parseFloat(item.price)).reduce((total, value) => total + value, 0) : 0;
+        cartItems?.map(item => parseFloat(item.price) * (item.quantity || 1)).reduce((total, value) => total + value, 0) : 0;
       setTotalAmountUSD(totalInUSD);
     }, 100);
     return () => clearTimeout(timer);
@@ -493,22 +486,6 @@ const Checkout = () => {
       }
     }
   }, [context?.cartData]);
-
-  useEffect(() => {
-    const initAirwallex = async () => {
-      if (airwallexPayments) return;
-      try {
-        const { payments } = await init({
-          env: VITE_APP_AIRWALLEX_ENV,
-          enabledElements: ['payments'],
-        });
-        setAirwallexPayments(payments);
-      } catch (error) {
-        console.error('Failed to initialize Airwallex:', error);
-      }
-    };
-    initAirwallex();
-  }, []);
 
   const calculateDiscountAmount = () => {
     if (!appliedDiscount) return 0;
@@ -567,7 +544,7 @@ const Checkout = () => {
     else if (totalAmountUSD < 100) defaultShipping = 10;
     else if (totalAmountUSD < 200) defaultShipping = 5;
     setShippingCost(defaultShipping);
-    setShippingInfo({ type: 'flat', label: `${currency} ${defaultShipping}`, delivery: '5-7 business days' });
+    setShippingInfo({ type: 'flat', label: `USD ${defaultShipping}`, delivery: '5-7 business days' });
   };
 
   useEffect(() => {
@@ -624,21 +601,19 @@ const Checkout = () => {
     setIsloading(true);
     try {
       const finalTotalUSD = calculateFinalTotal();
-      const finalTotalInCurrency = convertPrice(finalTotalUSD);
-      const productsInCurrency = context?.cartData?.map(item => ({
-        ...item, price: convertPrice(parseFloat(item.price)),
-        subTotal: convertPrice(parseFloat(item.price)),
-        perUnit: convertPrice(parseFloat(item.price) / (parseInt(item.quantity) || 1))
-      }));
+      const selectedCurrency = currency || 'USD';
+      const rate = exchangeRates[selectedCurrency] || 1;
+      const productsInCurrency = context?.cartData?.map(item => ({ ...item }));
       const payLoad = {
         userId: context?.userData?._id, products: productsInCurrency, paymentId: data.orderID,
         payment_status: "COMPLETE", delivery_address: selectedAddressData,
-        totalAmt: parseFloat(finalTotalInCurrency),
-        subTotal: parseFloat(convertPrice(totalAmountUSD)),
-        shippingCost: parseFloat(convertPrice(shippingCost)),
+        totalAmt: parseFloat(finalTotalUSD),
+        subTotal: parseFloat(totalAmountUSD),
+        shippingCost: parseFloat(shippingCost),
         discountCode: appliedDiscount?.code || null,
-        discountAmount: parseFloat(convertPrice(calculateDiscountAmount())),
-        currency: currency,
+        discountAmount: parseFloat(calculateDiscountAmount()),
+        currency: selectedCurrency,
+        currencyRate: rate,
         date: new Date().toLocaleString("en-US", { month: "short", day: "2-digit", year: "numeric" })
       };
       const res = await axios.post(`${VITE_API_URL}/api/order/capture-order-paypal`, payLoad, {
@@ -715,85 +690,7 @@ const Checkout = () => {
     setSelectedPaymentMethod(method);
     setCardComplete(false);
     setCardError('');
-  };
-
-  const handleAirwallexPayment = async () => {
-    if (!context?.cartData || context.cartData.length === 0) { context.alertBox('error', 'Your cart is empty!'); return; }
-    if (userData?.address_details?.length === 0) { context.alertBox("error", "Please add address"); return; }
-    if (!selectedAddress) { context.alertBox("error", "Please select address"); return; }
-    if (!cardComplete) { context.alertBox("error", "Please complete card details"); return; }
-    
-    setProcessingPayment(true);
-    setIsloading(true);
-    
-    try {
-      const finalTotalUSD = calculateFinalTotal();
-      const finalTotalInCurrency = convertPrice(finalTotalUSD);
-      
-      // Try direct Airwallex API first
-      let paymentId = null;
-      let clientSecret = null;
-      
-      try {
-        const intentRes = await axios.post(`${VITE_API_URL}/api/airwallex/create-payment-intent`, {
-          amount: parseFloat(finalTotalInCurrency),
-          currency: currency || 'USD'
-        });
-        
-        if (intentRes.data?.success) {
-          paymentId = intentRes.data.id;
-          clientSecret = intentRes.data.clientSecret;
-        }
-      } catch (apiError) {
-        console.error('Airwallex API Error:', apiError.response?.data || apiError.message);
-      }
-      
-      // If real payment failed, use simulation for testing
-      if (!paymentId) {
-        paymentId = `AWX_TEST_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
-        clientSecret = `test_secret_${paymentId}`;
-      }
-      
-      // Create order
-      const productsInCurrency = context?.cartData?.map(item => ({ ...item, price: convertPrice(parseFloat(item.price)), subTotal: convertPrice(parseFloat(item.price)) }));
-      
-      const payLoad = {
-        userId: userData._id,
-        products: productsInCurrency,
-        payment_method: "airwallex",
-        paymentId: paymentId,
-        payment_status: "PAID",
-        delivery_address: selectedAddressData,
-        totalAmt: parseFloat(finalTotalInCurrency),
-        subTotal: parseFloat(convertPrice(totalAmountUSD)),
-        shippingCost: parseFloat(convertPrice(shippingCost)),
-        discountCode: appliedDiscount?.code || null,
-        discountAmount: parseFloat(convertPrice(calculateDiscountAmount())),
-        currency: currency
-      };
-      
-      const res = await postData("/api/order/create", payLoad);
-      
-      if (res?.success) {
-        if (appliedDiscount) await postData("/api/discountCode/apply", { code: appliedDiscount.code });
-        await deleteData(`/api/cart/emptyCart/${userData._id}`);
-        context?.getCartItems();
-        localStorage.removeItem('appliedDiscount');
-        context.alertBox("success", paymentId.startsWith('AWX_TEST_') 
-          ? "Order placed successfully! (Test Mode - Payment API unavailable)"
-          : "Payment successful! Order placed via Airwallex.");
-        history("/order/success");
-      } else {
-        context.alertBox("error", res?.message || "Failed to create order");
-        setProcessingPayment(false);
-        setIsloading(false);
-      }
-    } catch (error) {
-      console.error("Payment Error:", error);
-      context.alertBox("error", error.response?.data?.message || "Payment failed. Please try again.");
-      setProcessingPayment(false);
-setIsloading(false);
-    }
+    setPaymentMethodId(null);
   };
 
   const handlePlaceOrder = () => {
@@ -801,16 +698,15 @@ setIsloading(false);
     if (!userData || userData?.address_details?.length === 0) { context.alertBox("error", "Please add address"); return; }
     if (!selectedAddress) { context.alertBox("error", "Please select address"); return; }
 
-    if (selectedPaymentMethod === 'card') {
-      if (!cardComplete) { context.alertBox("error", "Please complete card details"); return; }
-      handleAirwallexPayment();
-    } else if (selectedPaymentMethod === 'paypal') {
+    if (selectedPaymentMethod === 'paypal') {
       context.alertBox('info', 'Please click the PayPal button to complete payment');
     } else if (selectedPaymentMethod === 'bank_deposit') {
       handleBankDeposit();
     } else if (selectedPaymentMethod === 'stripe') {
       if (!cardComplete) { context.alertBox("error", "Please validate card details first"); return; }
       handleStripePayment();
+    } else if (selectedPaymentMethod === 'airwallex') {
+      handleAirwallexPayment();
     }
   };
 
@@ -1106,31 +1002,6 @@ setIsloading(false);
                       </div>
                     )}
 
-                    {paymentGateways.some(g => g.gatewayType === 'airwallex') && (
-                      <div
-                        onClick={() => handlePaymentMethodChange('card')}
-                        className={`cursor-pointer p-3 lg:p-4 rounded-xl border-2 transition-all duration-200 flex items-center gap-3 ${
-                          selectedPaymentMethod === 'card'
-                            ? 'border-cyan-500 bg-cyan-50 shadow-md'
-                            : 'border-gray-200 hover:border-cyan-300 hover:shadow-md'
-                        }`}
-                      >
-                        <Radio checked={selectedPaymentMethod === 'card'} sx={{ p: 0 }} />
-                        <div className="w-10 h-10 lg:w-12 lg:h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center shrink-0 shadow-sm">
-                          <FaCreditCard className="text-white text-lg lg:text-xl" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-gray-900 text-sm lg:text-base">Credit / Debit Card</h3>
-                          <p className="text-xs text-gray-500 hidden lg:block">Secure payment via Airwallex</p>
-                        </div>
-                        <div className="flex gap-1 shrink-0">
-                          <img src="/visa.png" alt="Visa" className="h-5 lg:h-6" />
-                          <img src="/master_card.png" alt="Mastercard" className="h-5 lg:h-6" />
-                          <img src="/american_express.png" alt="Amex" className="h-5 lg:h-6" />
-                        </div>
-                      </div>
-                    )}
-
                     {paymentGateways.some(g => g.gatewayType === 'paypal') && (
                       <div
                         onClick={() => handlePaymentMethodChange('paypal')}
@@ -1148,6 +1019,31 @@ setIsloading(false);
                           <h3 className="font-semibold text-gray-900 text-sm lg:text-base">PayPal</h3>
                           <p className="text-xs text-gray-500 hidden lg:block">Fast & secure payment with PayPal</p>
                         </div>
+                      </div>
+                    )}
+
+                    {paymentGateways.some(g => g.gatewayType === 'airwallex') && (
+                      <div
+                        onClick={() => handlePaymentMethodChange('airwallex')}
+                        className={`cursor-pointer p-3 lg:p-4 rounded-xl border-2 transition-all duration-200 flex items-center gap-3 ${
+                          selectedPaymentMethod === 'airwallex'
+                            ? 'border-teal-500 bg-teal-50 shadow-md'
+                            : 'border-gray-200 hover:border-teal-300 hover:shadow-md'
+                        }`}
+                      >
+                        <Radio checked={selectedPaymentMethod === 'airwallex'} sx={{ p: 0 }} />
+                        <div className="w-10 h-10 lg:w-12 lg:h-12 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-xl flex items-center justify-center shrink-0 shadow-sm">
+                          <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15l-4-4 1.41-1.41L11 14.17l6.59-6.59L19 9l-8 8z"/>
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-gray-900 text-sm lg:text-base">Airwallex</h3>
+                          <p className="text-xs text-gray-500 hidden lg:block">Global payments – cards & local methods</p>
+                        </div>
+                        <span className="text-[10px] font-medium bg-teal-100 text-teal-700 px-2 py-1 rounded-full shrink-0">
+                          Secure
+                        </span>
                       </div>
                     )}
 
@@ -1255,6 +1151,7 @@ setIsloading(false);
                                 <StripeCardForm
                                   onError={setCardError}
                                   onComplete={setCardComplete}
+                                  onPaymentMethodReady={setPaymentMethodId}
                                   selectedAddressData={selectedAddressData}
                                 />
                               </Elements>
@@ -1277,114 +1174,202 @@ setIsloading(false);
                       </div>
                     )}
 
-                    {/* Airwallex Card Input */}
-                    {selectedPaymentMethod === 'card' && (
-                      <div className="p-4 bg-gradient-to-br from-cyan-50 to-white rounded-xl border border-cyan-200 shadow-sm">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <FaLock className="text-emerald-600 text-xs" />
-                            <span className="text-xs font-medium text-gray-600">Secure Card Payment via Airwallex</span>
+                    {/* PayPal */}
+                    {selectedPaymentMethod === 'paypal' && (
+                      <div className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
+                        <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 bg-[#003087] rounded-lg flex items-center justify-center shrink-0">
+                              <BsPaypal className="text-white text-sm" />
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-semibold text-gray-900 leading-tight">PayPal</h3>
+                              <p className="text-[11px] text-gray-500 leading-tight">Fast & secure checkout</p>
+                            </div>
                           </div>
-                          <div className="flex gap-1">
-                            <img src="/visa.png" alt="Visa" className="h-4 opacity-80" />
-                            <img src="/master_card.png" alt="Mastercard" className="h-4 opacity-80" />
-                            <img src="/american_express.png" alt="Amex" className="h-4 opacity-80" />
+                          <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full shrink-0">Quick</span>
+                        </div>
+                        <div className="px-4 py-3.5 space-y-3">
+                          <div className="flex items-center gap-3 text-[11px] text-gray-500">
+                            <span className="flex items-center gap-1.5">
+                              <svg className="w-3.5 h-3.5 text-[#003087]" viewBox="0 0 24 24" fill="currentColor"><path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797h-2.19c-.524 0-.968.382-1.05.9l-1.12 7.106z"/></svg>
+                              PayPal
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                              <svg className="w-3.5 h-3.5 text-[#003087]" viewBox="0 0 24 24" fill="currentColor"><path d="M20.067 8.478c.493 0 .917.374.917.874 0 .5-.424.874-.917.874H11.48c-.493 0-.917-.374-.917-.874 0-.5.424-.874.917-.874h8.587zM20.067 12.412c.493 0 .917.374.917.874 0 .5-.424.874-.917.874H11.48c-.493 0-.917-.374-.917-.874 0-.5.424-.874.917-.874h8.587z"/></svg>
+                              PayPal Credit
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                              <svg className="w-3.5 h-3.5 text-[#003087]" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                              Pay Later
+                            </span>
                           </div>
-                        </div>
-                        <div className="p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
-                          <AirwallexCardForm
-                            onCardComplete={setCardComplete}
-                          />
-                        </div>
-                        <div className="flex items-center justify-center gap-2 mt-3 text-[10px] text-gray-400">
-                          <FaLock />
-                          <span>PCI DSS compliant payment processing</span>
+                          <div className="bg-gray-50 rounded-lg p-2 min-h-[90px] flex items-center justify-center">
+                            <PayPalScriptProvider 
+                              options={{
+                                "client-id": paypalClientId,
+                                currency: currency || 'USD',
+                                intent: "capture"
+                              }}
+                            >
+                              <PayPalButtons
+                                style={{ layout: "vertical", color: "gold", shape: "pill", label: "paypal" }}
+                                disabled={processingPayment || !selectedAddress}
+                                createOrder={(data, actions) => {
+                                  const amount = calculateFinalTotal();
+                                  if (!amount || amount <= 0) {
+                                    context.alertBox("error", "Invalid amount");
+                                    return Promise.reject("Invalid amount");
+                                  }
+                                  const selectedCurrency = currency || 'USD';
+                                  const converted = convertPrice(amount);
+                                  const items = (context.cartData || []).map(item => ({
+                                    name: item.productTitle || 'Product',
+                                    sku: item.productId || '',
+                                    quantity: String(item.quantity || 1),
+                                    unit_amount: {
+                                      currency_code: selectedCurrency,
+                                      value: convertPrice(parseFloat(item.price)).toFixed(2)
+                                    }
+                                  }));
+                                  const itemTotal = items.reduce(
+                                    (sum, item) => sum + parseFloat(item.unit_amount.value) * parseInt(item.quantity),
+                                    0
+                                  );
+                                  const amountPayload = {
+                                    currency_code: selectedCurrency,
+                                    value: converted.toFixed(2),
+                                    breakdown: {
+                                      item_total: {
+                                        currency_code: selectedCurrency,
+                                        value: itemTotal.toFixed(2)
+                                      }
+                                    }
+                                  };
+                                  if (shippingCost > 0) {
+                                    amountPayload.breakdown.shipping = {
+                                      currency_code: selectedCurrency,
+                                      value: convertPrice(shippingCost).toFixed(2)
+                                    };
+                                  }
+                                  const discountVal = calculateDiscountAmount();
+                                  if (discountVal > 0) {
+                                    amountPayload.breakdown.discount = {
+                                      currency_code: selectedCurrency,
+                                      value: convertPrice(discountVal).toFixed(2)
+                                    };
+                                  }
+                                  return actions.order.create({
+                                    purchase_units: [{
+                                      amount: amountPayload,
+                                      items: items
+                                    }]
+                                  });
+                                }}
+                                onApprove={async (data, actions) => {
+                                  setProcessingPayment(true);
+                                  try {
+                                    await actions.order.capture();
+                                    const finalTotalUSD = calculateFinalTotal();
+                                    const selectedCurrency = currency || 'USD';
+                                    const rate = exchangeRates[selectedCurrency] || 1;
+                                    const productsInCurrency = context?.cartData?.map(item => ({ ...item }));
+                                    const payLoad = { userId: userData._id, products: productsInCurrency, payment_method: "paypal", paymentId: data.orderID, delivery_address: selectedAddressData, totalAmt: parseFloat(finalTotalUSD), subTotal: parseFloat(totalAmountUSD), shippingCost: parseFloat(shippingCost), discountCode: appliedDiscount?.code || null, discountAmount: parseFloat(calculateDiscountAmount()), currency: selectedCurrency, currencyRate: rate };
+                                    const res = await postData("/api/order/create", payLoad);
+                                    if (res?.success) {
+                                      if (appliedDiscount) await postData("/api/discountCode/apply", { code: appliedDiscount.code });
+                                      await deleteData(`/api/cart/emptyCart/${userData._id}`);
+                                      context?.getCartItems();
+                                      localStorage.removeItem('appliedDiscount');
+                                      context.alertBox("success", "Order placed successfully!");
+                                      history("/order/success");
+                                    } else {
+                                      context.alertBox("error", res?.message);
+                                    }
+                                  } catch (error) {
+                                    console.error('PayPal order error:', error);
+                                    context.alertBox("error", "Payment failed. Please try again.");
+                                  } finally {
+                                    setProcessingPayment(false);
+                                  }
+                                }}
+                                onError={(err) => {
+                                  console.error('PayPal Error:', err);
+                                  if (err?.message?.includes('No such order')) {
+                                    context.alertBox("error", "Order creation failed. Please refresh and try again.");
+                                  } else if (err?.message?.includes('INVALID')) {
+                                    context.alertBox("error", "Invalid PayPal configuration. Using Bank Transfer instead.");
+                                  } else {
+                                    context.alertBox("error", "PayPal payment failed. Please try again or use Bank Transfer.");
+                                  }
+                                }}
+                              />
+                            </PayPalScriptProvider>
+                          </div>
+                          <p className="text-[10px] text-gray-400 text-center flex items-center justify-center gap-1.5">
+                            <svg className="w-3 h-3 text-emerald-500" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                            Protected by PayPal Buyer Protection
+                          </p>
                         </div>
                       </div>
                     )}
 
-                    {/* PayPal Button */}
-                    {selectedPaymentMethod === 'paypal' && (
-                      <div className="p-4 bg-gradient-to-br from-blue-50 to-white rounded-xl border border-blue-200 shadow-sm">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <FaLock className="text-emerald-600 text-xs" />
-                            <span className="text-xs font-medium text-gray-600">Secure payment with PayPal</span>
+                    {selectedPaymentMethod === 'airwallex' && (
+                      <div className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
+                        <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-lg flex items-center justify-center shrink-0">
+                              <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15l-4-4 1.41-1.41L11 14.17l6.59-6.59L19 9l-8 8z"/>
+                              </svg>
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-semibold text-gray-900 leading-tight">Airwallex</h3>
+                              <p className="text-[11px] text-gray-500 leading-tight">Global payment gateway</p>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <BsPaypal className="text-blue-600 text-sm" />
-                            <span className="text-[10px] font-medium text-blue-600">PayPal</span>
+                          <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full shrink-0">Secure</span>
+                        </div>
+                        <div className="px-4 py-3.5">
+                          <div className="flex flex-wrap items-center gap-2 mb-3 text-[11px] text-gray-600">
+                            <span className="flex items-center gap-1.5 bg-gray-50 px-2.5 py-1 rounded-md">
+                              <svg className="w-3.5 h-3.5 text-teal-500" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-8 8z"/></svg>
+                              Credit & Debit Cards
+                            </span>
+                            <span className="flex items-center gap-1.5 bg-gray-50 px-2.5 py-1 rounded-md">
+                              <svg className="w-3.5 h-3.5 text-teal-500" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-8 8z"/></svg>
+                              Local Payment Methods
+                            </span>
+                            <span className="flex items-center gap-1.5 bg-gray-50 px-2.5 py-1 rounded-md">
+                              <svg className="w-3.5 h-3.5 text-teal-500" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-8 8z"/></svg>
+                              Global Coverage
+                            </span>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2 mb-2 text-[10px] text-gray-500">
-                          <span>💳 PayPal Credit</span>
-                          <span>📅 Pay Later</span>
-                          <span>📱 Venmo</span>
-                        </div>
-                        <div className="bg-white rounded-lg p-2 shadow-sm min-h-[100px] flex items-center justify-center">
-                          <PayPalScriptProvider 
-                            options={{
-                              "client-id": paypalClientId,
-                              currency: currency,
-                              intent: "capture"
-                            }}
+                          <button
+                            onClick={handleAirwallexPayment}
+                            disabled={processingPayment || !selectedAddress}
+                            className="w-full py-3 bg-gradient-to-r from-teal-500 to-emerald-600 text-white text-sm font-medium rounded-xl hover:from-teal-600 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2"
                           >
-                            <PayPalButtons
-                              style={{ layout: "vertical", color: "blue", shape: "rect" }}
-                              disabled={processingPayment || !selectedAddress}
-                              createOrder={(data, actions) => {
-                                const amount = calculateFinalTotal();
-                                if (!amount || amount <= 0) {
-                                  context.alertBox("error", "Invalid amount");
-                                  return Promise.reject("Invalid amount");
-                                }
-                                return actions.order.create({
-                                  purchase_units: [{
-                                    amount: { value: amount.toFixed(2), currency_code: currency }
-                                  }]
-                                });
-                              }}
-                              onApprove={async (data, actions) => {
-                                setProcessingPayment(true);
-                                try {
-                                  await actions.order.capture();
-                                  const finalTotalUSD = calculateFinalTotal();
-                                  const finalTotalInCurrency = convertPrice(finalTotalUSD);
-                                  const productsInCurrency = context?.cartData?.map(item => ({ ...item, price: convertPrice(parseFloat(item.price)), subTotal: convertPrice(parseFloat(item.price)) }));
-                                  const payLoad = { userId: userData._id, products: productsInCurrency, payment_method: "paypal", paymentId: data.orderID, delivery_address: selectedAddressData, totalAmt: parseFloat(finalTotalInCurrency), subTotal: parseFloat(convertPrice(totalAmountUSD)), shippingCost: parseFloat(convertPrice(shippingCost)), discountCode: appliedDiscount?.code || null, discountAmount: parseFloat(convertPrice(calculateDiscountAmount())), currency: currency };
-                                  const res = await postData("/api/order/create", payLoad);
-                                  if (res?.success) {
-                                    if (appliedDiscount) await postData("/api/discountCode/apply", { code: appliedDiscount.code });
-                                    await deleteData(`/api/cart/emptyCart/${userData._id}`);
-                                    context?.getCartItems();
-                                    localStorage.removeItem('appliedDiscount');
-                                    context.alertBox("success", "Order placed successfully!");
-                                    history("/order/success");
-                                  } else {
-                                    context.alertBox("error", res?.message);
-                                  }
-                                } catch (error) {
-                                  console.error('PayPal order error:', error);
-                                  context.alertBox("error", "Payment failed. Please try again.");
-                                } finally {
-                                  setProcessingPayment(false);
-                                }
-                              }}
-                              onError={(err) => {
-                                console.error('PayPal Error:', err);
-                                // Show more specific error message
-                                if (err?.message?.includes('No such order')) {
-                                  context.alertBox("error", "Order creation failed. Please refresh and try again.");
-                                } else if (err?.message?.includes('INVALID')) {
-                                  context.alertBox("error", "Invalid PayPal configuration. Using Bank Transfer instead.");
-                                } else {
-                                  context.alertBox("error", "PayPal payment failed. Please try again or use Bank Transfer.");
-                                }
-                              }}
-                            />
-                          </PayPalScriptProvider>
+                            {processingPayment ? (
+                              <>
+                                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                                </svg>
+                                Processing...
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+                                Pay with Airwallex
+                              </>
+                            )}
+                          </button>
+                          <p className="text-[10px] text-gray-400 text-center mt-3 flex items-center justify-center gap-1.5">
+                            <svg className="w-3 h-3 text-teal-500" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-8 8z"/></svg>
+                            You will be redirected to Airwallex's secure payment page
+                          </p>
                         </div>
-                        <p className="text-xs text-gray-400 mt-2 text-center">Click the PayPal button above to complete payment</p>
                       </div>
                     )}
                   </div>

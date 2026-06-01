@@ -1,184 +1,87 @@
 import express from 'express';
-import axios from 'axios';
-import dotenv from 'dotenv';
-
-dotenv.config();
+import auth from '../middlewares/auth.js';
+import airwallexService from '../config/airwallex.js';
 
 const router = express.Router();
 
-const AIRWALLEX_API_KEY = process.env.AIRWALLEX_API_KEY;
-const AIRWALLEX_CLIENT_ID = process.env.AIRWALLEX_CLIENT_ID;
-const AIRWALLEX_API_URL = process.env.AIRWALLEX_API_URL || 'https://api-demo.airwallex.com';
+// Validate payment amount
+const validateAmount = (req, res, next) => {
+  const amount = req.body.amount;
+  if (!amount || typeof amount !== 'number' || amount <= 0) {
+    return res.status(400).json({ error: true, message: 'Invalid or missing amount' });
+  }
+  if (amount > 999999.99) {
+    return res.status(400).json({ error: true, message: 'Amount exceeds maximum limit' });
+  }
+  if (amount < 0.50) {
+    return res.status(400).json({ error: true, message: 'Amount must be at least $0.50' });
+  }
+  next();
+};
 
-// Get Airwallex config (safe to expose to frontend)
-router.get('/config', (req, res) => {
-    return res.status(200).json({
-        error: false,
-        clientId: AIRWALLEX_CLIENT_ID || '',
-        environment: process.env.AIRWALLEX_ENV || 'demo'
+router.post('/create-intent', auth, validateAmount, async (req, res) => {
+  try {
+    const { amount, currency, metadata } = req.body;
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ error: true, message: 'Invalid amount' });
+    }
+    const returnUrl = `${process.env.CLIENT_URL}/order/airwallex-return`;
+    const cancelUrl = `${process.env.CLIENT_URL}/checkout`;
+    const merchantOrderId = `ORDER-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+    const intent = await airwallexService.createPaymentIntent({
+      amount,
+      currency: currency || 'USD',
+      merchantOrderId,
+      returnUrl,
+      cancelUrl,
+      metadata: { ...metadata, merchant_order_id: merchantOrderId }
     });
+    res.json({
+      success: true,
+      error: false,
+      data: {
+        intentId: intent.id,
+        clientSecret: intent.clientSecret,
+        merchantOrderId
+      }
+    });
+  } catch (error) {
+    console.error('Airwallex create intent error:', error);
+    res.status(500).json({ error: true, message: error.message || 'Failed to create payment intent' });
+  }
 });
 
-// Create Payment Intent
-router.post('/create-payment-intent', async (req, res) => {
-    try {
-        const { amount, currency = 'USD', customerId } = req.body;
-
-        if (!amount || amount <= 0) {
-            return res.status(400).json({ error: true, message: 'Invalid amount' });
-        }
-
-        console.log('=== AIRWALLEX CREATE PAYMENT INTENT ===');
-        console.log('API URL:', AIRWALLEX_API_URL);
-        
-        // Get access token
-        const tokenResponse = await axios.post(
-            `${AIRWALLEX_API_URL}/api/v1/authentication/login`,
-            {},
-            {
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'x-api-key': AIRWALLEX_API_KEY,
-                    'x-client-id': AIRWALLEX_CLIENT_ID
-                }
-            }
-        );
-
-        const accessToken = tokenResponse.data.token;
-        console.log('Token obtained');
-
-        // Create payment intent - amount in minor units (cents for USD)
-        const intentResponse = await axios.post(
-            `${AIRWALLEX_API_URL}/api/v1/pa/payment_intents/create`,
-            {
-                amount: parseFloat(amount),
-                currency: currency.toUpperCase(),
-                request_id: `req_${Date.now()}`,
-                merchant_order_id: `order_${Date.now()}`,
-                return_url: `${process.env.CLIENT_URL || 'http://localhost:5173'}/order/success`
-            },
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${accessToken}`,
-                    'Airwallex-Client-Id': AIRWALLEX_CLIENT_ID
-                }
-            }
-        );
-
-        return res.status(200).json({
-            error: false,
-            success: true,
-            clientSecret: intentResponse.data.client_secret,
-            id: intentResponse.data.id,
-            paymentIntent: intentResponse.data
-        });
-    } catch (error) {
-        console.error('Airwallex create-payment-intent error:', error.response?.data || error.message);
-        return res.status(500).json({
-            error: true,
-            success: false,
-            message: error.response?.data?.message || error.message || 'Failed to create payment intent'
-        });
-    }
+router.get('/intent/:id', async (req, res) => {
+  try {
+    const intent = await airwallexService.getPaymentIntent(req.params.id);
+    res.json({
+      success: true,
+      error: false,
+      data: {
+        id: intent.id,
+        status: intent.status,
+        amount: intent.amount,
+        currency: intent.currency
+      }
+    });
+  } catch (error) {
+    console.error('Airwallex get intent error:', error);
+    res.status(500).json({ error: true, message: error.message || 'Failed to get payment intent' });
+  }
 });
 
-// Confirm Payment
-router.post('/confirm-payment', async (req, res) => {
-    try {
-        const { paymentIntentId, paymentMethodId } = req.body;
-
-        // Get access token
-        const tokenResponse = await axios.post(
-            'https://api.airwallex.com/api/v1/authentication/login',
-            {
-                client_id: AIRWALLEX_CLIENT_ID,
-                secret_key: AIRWALLEX_API_KEY
-            },
-            {
-                headers: { 'Content-Type': 'application/json' }
-            }
-        );
-
-        const accessToken = tokenResponse.data.token;
-
-        // Confirm payment
-        const confirmResponse = await axios.post(
-            `https://api.airwallex.com/api/v1/payment_intents/${paymentIntentId}/confirm`,
-            {
-                payment_method: {
-                    type: 'card',
-                    card: {
-                        payment_method_id: paymentMethodId
-                    }
-                }
-            },
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${accessToken}`
-                }
-            }
-        );
-
-        return res.status(200).json({
-            error: false,
-            success: true,
-            status: confirmResponse.data.status,
-            paymentIntent: confirmResponse.data
-        });
-    } catch (error) {
-        console.error('Airwallex confirm-payment error:', error.response?.data || error.message);
-        return res.status(500).json({
-            error: true,
-            success: false,
-            message: error.response?.data?.message || error.message || 'Failed to confirm payment'
-        });
+router.post('/webhook', async (req, res) => {
+  try {
+    const event = req.body;
+    console.log('Airwallex webhook:', event.event_type, event.data?.id);
+    if (event.event_type === 'payment_intent.succeeded') {
+      console.log('Payment succeeded for intent:', event.data?.id);
     }
-});
-
-// Get Payment Intent Status
-router.get('/payment-intent/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-
-        // Get access token
-        const tokenResponse = await axios.post(
-            'https://api.airwallex.com/api/v1/authentication/login',
-            {
-                client_id: AIRWALLEX_CLIENT_ID,
-                secret_key: AIRWALLEX_API_KEY
-            },
-            {
-                headers: { 'Content-Type': 'application/json' }
-            }
-        );
-
-        const accessToken = tokenResponse.data.token;
-
-        // Get payment intent
-        const intentResponse = await axios.get(
-            `https://api.airwallex.com/api/v1/payment_intents/${id}`,
-            {
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`
-                }
-            }
-        );
-
-        return res.status(200).json({
-            error: false,
-            success: true,
-            paymentIntent: intentResponse.data
-        });
-    } catch (error) {
-        console.error('Airwallex get-payment-intent error:', error.response?.data || error.message);
-        return res.status(500).json({
-            error: true,
-            success: false,
-            message: error.message
-        });
-    }
+    res.json({ received: true });
+  } catch (error) {
+    console.error('Airwallex webhook error:', error);
+    res.status(500).json({ error: true, message: 'Webhook processing failed' });
+  }
 });
 
 export default router;

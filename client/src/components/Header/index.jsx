@@ -5,7 +5,6 @@ import Badge from "@mui/material/Badge";
 import { styled } from "@mui/material/styles";
 import IconButton from "@mui/material/IconButton";
 import { MdOutlineShoppingCart } from "react-icons/md";
-import { IoGitCompareOutline } from "react-icons/io5";
 import { FaRegHeart } from "react-icons/fa6";
 import Tooltip from "@mui/material/Tooltip";
 import Navigation from "./Navigation";
@@ -22,7 +21,6 @@ import { fetchDataFromApi } from "../../utils/api";
 import { LuMapPin } from "react-icons/lu";
 import { useEffect } from "react";
 import { HiOutlineMenu } from "react-icons/hi";
-import { FaShippingFast } from "react-icons/fa";
 import CurrencySelector from "../CurrencySelector";
 import RegionDisplay from "../RegionDisplay";
 
@@ -130,7 +128,7 @@ const Header = () => {
 
             <div className="col1 w-[20%] lg:w-[12%]">
               <Link to={"/"}>
-                <img src={localStorage.getItem('logo')} className="w-[50px] sm:w-[55px] lg:w-[65px] h-auto object-contain" />
+                <img src={localStorage.getItem('logo')} alt="White Yak Pashmina" className="w-[50px] sm:w-[55px] lg:w-[65px] h-auto object-contain" />
               </Link>
             </div>
 
@@ -165,9 +163,9 @@ const Header = () => {
                           className="!text-[#000] myAccountWrap flex items-center gap-3 cursor-pointer"
                           onClick={handleClick}
                         >
-                          <Button className="!w-[40px] !h-[40px] !min-w-[40px] !rounded-full !bg-gray-200">
+                          <IconButton className="!w-[40px] !h-[40px] !rounded-full !bg-gray-200">
                             <FaRegUser className="text-[17px] text-[rgba(0,0,0,0.7)]" />
-                          </Button>
+                          </IconButton>
 
                           {
                             context?.windowWidth > 992 &&
@@ -223,7 +221,7 @@ const Header = () => {
                           <Link to="/my-account" className="w-full block">
                             <MenuItem
                               onClick={handleClose}
-                              className="flex gap-2 ! !py-2"
+                              className="flex gap-2 !py-2"
                             >
                               <FaRegUser className="text-[18px]" />{" "}
                               <span className="text-[14px]">My Account</span>
@@ -232,7 +230,7 @@ const Header = () => {
                           <Link to="/address" className="w-full block">
                             <MenuItem
                               onClick={handleClose}
-                              className="flex gap-2 ! !py-2"
+                              className="flex gap-2 !py-2"
                             >
                               <LuMapPin className="text-[18px]" />{" "}
                               <span className="text-[14px]">Address</span>
@@ -241,7 +239,7 @@ const Header = () => {
                           <Link to="/my-orders" className="w-full block">
                             <MenuItem
                               onClick={handleClose}
-                              className="flex gap-2 ! !py-2"
+                              className="flex gap-2 !py-2"
                             >
                               <IoBagCheckOutline className="text-[18px]" />{" "}
                               <span className="text-[14px]">Orders</span>
@@ -250,7 +248,7 @@ const Header = () => {
                           <Link to="/my-list" className="w-full block">
                             <MenuItem
                               onClick={handleClose}
-                              className="flex gap-2 ! !py-2"
+                              className="flex gap-2 !py-2"
                             >
                               <IoMdHeartEmpty className="text-[18px]" />{" "}
                               <span className="text-[14px]">My List</span>
@@ -260,7 +258,7 @@ const Header = () => {
 
                           <MenuItem
                             onClick={logout}
-                            className="flex gap-2 ! !py-2"
+                            className="flex gap-2 !py-2"
                           >
                             <IoIosLogOut className="text-[18px]" />{" "}
                             <span className="text-[14px]">Logout</span>
@@ -279,7 +277,7 @@ const Header = () => {
                     <Tooltip title="Wishlist">
                       <Link to="/my-list">
                         <IconButton aria-label="cart">
-                          <StyledBadge badgeContent={context?.myListData?.length !== 0 ? context?.myListData?.length : 0} color="secondary">
+                          <StyledBadge badgeContent={context?.myListData?.length || null} color="secondary">
                             <FaRegHeart />
                           </StyledBadge>
                         </IconButton>
@@ -297,7 +295,7 @@ const Header = () => {
                       onClick={() => context.setOpenCartPanel(true)}
                     >
 
-                      <StyledBadge badgeContent={context?.cartData?.length !== 0 ? context?.cartData?.length : 0} color="secondary">
+                      <StyledBadge badgeContent={context?.cartData?.length || null} color="secondary">
                         <MdOutlineShoppingCart />
                       </StyledBadge>
                     </IconButton>

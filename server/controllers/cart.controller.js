@@ -1,11 +1,12 @@
 import CartProductModel from "../models/cartProduct.modal.js";
 import ProductModel from "../models/product.modal.js";
+import VariantModel from "../models/variant.model.js";
 import { markCartAbandoned } from "./abandonedCart.controller.js";
 
 export const addToCartItemController = async (request, response) => {
     try {
         const userId = request.userId //middleware
-        const { productTitle, image, rating, price, oldPrice, quantity, subTotal, productId, countInStock, discount, size, weight, ram, color, materials, brand } = request.body
+        const { productTitle, image, rating, price, oldPrice, quantity, subTotal, productId, countInStock, discount, size, weight, ram, color, materials, brand, variantId, variantSku } = request.body
 
         if (!productId) {
             return response.status(402).json({
@@ -25,27 +26,63 @@ export const addToCartItemController = async (request, response) => {
             })
         }
 
-        if (product.countInStock <= 0) {
-            return response.status(400).json({
-                message: "Sorry, this item is currently out of stock. Please check back later or contact us for alternatives.",
-                error: true,
-                success: false
-            })
+        if (product.hasVariants) {
+            if (!variantId) {
+                return response.status(400).json({
+                    message: "Variant selection is required for this product.",
+                    error: true,
+                    success: false
+                })
+            }
+            const variant = await VariantModel.findById(variantId);
+            if (!variant || variant.isDeleted || !variant.isActive) {
+                return response.status(404).json({
+                    message: "Selected variant not found.",
+                    error: true,
+                    success: false
+                })
+            }
+            if (variant.stock <= 0) {
+                return response.status(400).json({
+                    message: "Sorry, this variant is currently out of stock. Please check back later or contact us for alternatives.",
+                    error: true,
+                    success: false
+                })
+            }
+            if (variant.stock < quantity) {
+                return response.status(400).json({
+                    message: `Sorry, only ${variant.stock} items available in stock.`,
+                    error: true,
+                    success: false
+                })
+            }
+        } else {
+            if (product.countInStock <= 0) {
+                return response.status(400).json({
+                    message: "Sorry, this item is currently out of stock. Please check back later or contact us for alternatives.",
+                    error: true,
+                    success: false
+                })
+            }
+
+            if (product.countInStock < quantity) {
+                return response.status(400).json({
+                    message: `Sorry, only ${product.countInStock} items available in stock.`,
+                    error: true,
+                    success: false
+                })
+            }
         }
 
-        if (product.countInStock < quantity) {
-            return response.status(400).json({
-                message: `Sorry, only ${product.countInStock} items available in stock.`,
-                error: true,
-                success: false
-            })
-        }
 
-
-        const checkItemCart = await CartProductModel.findOne({
+        const checkItemCartQuery = {
             userId: userId,
-            productId: productId
-        })
+            productId: productId,
+        };
+        if (variantId) {
+            checkItemCartQuery.variantId = variantId;
+        }
+        const checkItemCart = await CartProductModel.findOne(checkItemCartQuery);
 
         if (checkItemCart) {
             return response.status(400).json({
@@ -55,23 +92,25 @@ export const addToCartItemController = async (request, response) => {
 
 
         const cartItem = new CartProductModel({
-            productTitle:productTitle,
-            image:image,
-            rating:rating,
-            price:price,
-            oldPrice:oldPrice,
-            quantity:quantity,
-            subTotal:subTotal,
-            productId:productId,
-            countInStock:countInStock,
-            userId:userId,
-            brand:brand,
-            discount:discount,
-            size:size,
-            weight:weight,
-            ram:ram,
-            color:color,
-            materials:materials
+            productTitle: productTitle || 'Unnamed Product',
+            image: image || '',
+            rating: rating || 0,
+            price: price || 0,
+            oldPrice: oldPrice || 0,
+            quantity: quantity,
+            subTotal: subTotal || 0,
+            productId: productId,
+            variantId: variantId || '',
+            variantSku: variantSku || '',
+            countInStock: countInStock || 0,
+            userId: userId,
+            brand: brand || '',
+            discount: discount || 0,
+            size: size || '',
+            weight: weight || '',
+            ram: ram || '',
+            color: color || '',
+            materials: materials || ''
         })
 
         const save = await cartItem.save();
@@ -131,6 +170,42 @@ export const updateCartItemQtyController = async (request, response) => {
             return response.status(400).json({
                 message: "provide _id, qty"
             })
+        }
+
+        const cartItem = await CartProductModel.findOne({ _id: _id, userId: userId });
+        if (!cartItem) {
+            return response.status(404).json({
+                message: "Cart item not found",
+                error: true,
+                success: false
+            })
+        }
+
+        if (cartItem.variantId) {
+            const variant = await VariantModel.findById(cartItem.variantId);
+            if (!variant || variant.isDeleted || !variant.isActive) {
+                return response.status(400).json({
+                    message: "Selected variant not found.",
+                    error: true,
+                    success: false
+                })
+            }
+            if (variant.stock < qty) {
+                return response.status(400).json({
+                    message: `Sorry, only ${variant.stock} items available in stock.`,
+                    error: true,
+                    success: false
+                })
+            }
+        } else {
+            const product = await ProductModel.findById(cartItem.productId);
+            if (product && product.countInStock < qty) {
+                return response.status(400).json({
+                    message: `Sorry, only ${product.countInStock} items available in stock.`,
+                    error: true,
+                    success: false
+                })
+            }
         }
 
         const updateCartitem = await CartProductModel.updateOne(

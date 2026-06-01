@@ -1,24 +1,16 @@
-import React,{useContext,useEffect, useState } from "react";
-import "../ProductItem/style.css";
+import React,{useContext,useEffect, useState, memo } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import Rating from "@mui/material/Rating";
-import Button from "@mui/material/Button";
 import { FaRegHeart } from "react-icons/fa";
 import { IoGitCompareOutline } from "react-icons/io5";
-import { MdZoomOutMap } from "react-icons/md";
+import { MdZoomOutMap, MdOutlineShoppingCart } from "react-icons/md";
+import { FaMinus, FaPlus, FaStar } from "react-icons/fa6";
+import { IoMdHeart } from "react-icons/io";
 import { MyContext } from "../../App";
-import { MdOutlineShoppingCart } from "react-icons/md";
-import { FaMinus } from "react-icons/fa6";
-import { FaPlus } from "react-icons/fa6";
 import { deleteData, editData, postData } from "../../utils/api";
 import CircularProgress from '@mui/material/CircularProgress';
-import { MdClose } from "react-icons/md";
-import { IoMdHeart } from "react-icons/io";
 import { useCurrency } from "../../context/CurrencyContext";
 
-const API_URL = import.meta.env.VITE_API_URL;
-
-const ProductItem = (props) => {
+const ProductItem = memo((props) => {
 
     const [quantity, setQuantity] = useState(1);
     const { formatPrice } = useCurrency();
@@ -27,15 +19,32 @@ const ProductItem = (props) => {
     const [cartItem, setCartItem] = useState([]);
     const navigate = useNavigate();
   
-    const [activeTab, setActiveTab] = useState(null);
-    const [isShowTabs, setIsShowTabs] = useState(false);
-    const [selectedTabName, setSelectedTabName] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
   
   
     const context = useContext(MyContext);
   
-    const addToCart = (product, userId, quantity) => {
+    const handleAddToCart = async (product) => {
+      if (!context?.isLogin || !context?.userData?._id) {
+        localStorage.setItem('pendingCartItem', JSON.stringify({
+          productId: product?._id,
+          productTitle: product?.name,
+          image: product?.images[0],
+          rating: product?.rating,
+          price: product?.price,
+          oldPrice: product?.oldPrice,
+          discount: product?.discount,
+          quantity: quantity,
+          countInStock: product?.countInStock,
+          brand: product?.brand,
+          color: product?.color?.length !== 0 ? (product?.color?.[0] || '') : '',
+          materials: product?.materials || ''
+        }));
+        context?.alertBox("info", "Please login to add items to cart");
+        navigate('/login');
+        return false;
+      }
+
       if (product?.countInStock <= 0) {
         context?.alertBox("error", "Sorry, this item is currently out of stock!");
         return false;
@@ -48,7 +57,7 @@ const ProductItem = (props) => {
 
       const productItem = {
         _id: product?._id,
-        name: product?.name,
+        productTitle: product?.name,
         image: product?.images[0],
         rating: product?.rating,
         price: product?.price,
@@ -59,47 +68,30 @@ const ProductItem = (props) => {
         productId: product?._id,
         countInStock: product?.countInStock,
         brand: product?.brand,
-        size: props?.item?.size?.length !== 0 ? selectedTabName : '',
-        weight: props?.item?.productWeight?.length !== 0 ? selectedTabName : '',
-        ram: props?.item?.productRam?.length !== 0 ? selectedTabName : ''
-  
+        size: '',
+        weight: '',
+        ram: '',
+        color: product?.color?.length !== 0 ? (product?.color?.[0] || '') : '',
+        materials: product?.materials || ''
       }
-  
-  
+
       setIsLoading(true);
-  
-      if (props?.item?.size?.length !== 0 || props?.item?.productRam?.length !== 0 || props?.item?.productWeight
-        ?.length !== 0) {
-        setIsShowTabs(true)
-      } else {
-        setIsAdded(true);
-  
-        setIsShowTabs(false);
-        setTimeout(() => {
-          setIsLoading(false);
-        }, 500);
-        context?.addToCart(productItem, userId, quantity);
-  
+
+      try {
+        const res = await postData("/api/cart/add", productItem);
+        if (res?.error === false) {
+          context?.alertBox("success", "Item added to cart!");
+          context?.getCartItems();
+          context?.setOpenCartPanel(true);
+          setIsAdded(true);
+        } else {
+          context?.alertBox("error", res?.message || "Failed to add to cart");
+        }
+      } catch (error) {
+        context?.alertBox("error", "Failed to add to cart");
+      } finally {
+        setIsLoading(false);
       }
-  
-  
-  
-      if (activeTab !== null) {
-        context?.addToCart(productItem, userId, quantity);
-        setIsAdded(true);
-        setIsShowTabs(false)
-        setTimeout(() => {
-          setIsLoading(false);
-        }, 500);
-      }
-  
-  
-    }
-  
-  
-    const handleClickActiveTab = (index, name) => {
-      setActiveTab(index)
-      setSelectedTabName(name)
     }
   
     useEffect(() => {
@@ -142,8 +134,6 @@ const ProductItem = (props) => {
           setIsAdded(false);
           context.alertBox("success", "Item Removed ");
           context?.getCartItems();
-          setIsShowTabs(false);
-          setActiveTab(null);
         })
       } else {
         const obj = {
@@ -215,172 +205,161 @@ const ProductItem = (props) => {
     }
 
   return (
-    <div className="productItem p-4 shadow-md bg-[#f1f1f1] rounded-md overflow-hidden border-1 border-[rgba(0,0,0,0.1)] flex items-center flex-col lg:flex-row">
-      <div className="group imgWrapper w-full lg:w-[25%] overflow-hidden rounded-md relative">
+    <div className="productItem bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col sm:flex-row hover:shadow-md transition-all duration-200">
+      <div className="group imgWrapper w-full sm:w-[160px] lg:w-[200px] shrink-0 overflow-hidden relative">
         <Link to={`/product/${props?.item?._id}`}>
-<div className="img w-full aspect-[4/5] overflow-hidden relative">
+          <div className="aspect-[4/3] sm:aspect-[1/1] overflow-hidden relative bg-gray-50">
             <img
               src={props?.item?.images[0]}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              alt={props?.item?.name}
             />
 
-           {
-                props?.item?.images?.length > 1 &&
-                <img
-                  src={props?.item?.images[1]}
-                  className="w-full h-full object-cover transition-all duration-700 absolute top-0 left-0 opacity-0 group-hover:opacity-100 group-hover:scale-105"
-                />
-              }
-
+            {props?.item?.images?.length > 1 && (
+              <img
+                src={props?.item?.images[1]}
+                className="w-full h-full object-cover transition-all duration-700 absolute top-0 left-0 opacity-0 group-hover:opacity-100 group-hover:scale-105"
+                alt={props?.item?.name}
+              />
+            )}
           </div>
         </Link>
 
-          {
-          isShowTabs === true &&
-          <div className="flex items-center justify-center absolute top-0 left-0 w-full h-full 
-      bg-[rgba(0,0,0,0.7)] z-[60] p-3 gap-2">
-
-            <Button className="!absolute top-[10px] right-[10px] !min-w-[30px] !min-h-[30px] !w-[30px] !h-[30px] !rounded-full !bg-[rgba(255,255,255,1)] text-black"
-              onClick={() => setIsShowTabs(false)}
-            > <MdClose className=" text-black z-[90] text-[25px]" /></Button>
-
-            {
-              props?.item?.size?.length !== 0 && props?.item?.size?.map((item, index) => {
-                return (
-                  <span key={index} className={`flex items-center justify-center p-1 px-2 bg-[rgba(255,555,255,0.8)] max-w-[35px] h-[25px]  
-          rounded-sm cursor-pointer hover:bg-white 
-          ${activeTab === index && '!bg-primary text-white'}`}
-                    onClick={() => handleClickActiveTab(index, item)}
-                  >{item}
-                  </span>)
-              })
-            }
-
-            {
-              props?.item?.productRam?.length !== 0 && props?.item?.productRam?.map((item, index) => {
-                return (
-                  <span key={index} className={`flex items-center justify-center p-1 px-2 bg-[rgba(255,555,255,0.8)] max-w-[45px] h-[25px]  
-          rounded-sm cursor-pointer hover:bg-white 
-          ${activeTab === index && '!bg-primary text-white'}`}
-                    onClick={() => handleClickActiveTab(index, item)}
-                  >{item}
-                  </span>)
-              })
-            }
-
-
-            {
-              props?.item?.productWeight?.length !== 0 && props?.item?.productWeight?.map((item, index) => {
-                return (
-                  <span key={index} className={`flex items-center justify-center p-1 px-2 bg-[rgba(255,555,255,0.8)] max-w-[35px] h-[25px]  
-          rounded-sm cursor-pointer hover:bg-white 
-          ${activeTab === index && '!bg-primary text-white'}`}
-                    onClick={() => handleClickActiveTab(index, item)}
-                  >{item}
-                  </span>)
-              })
-            }
-
+        {props?.item?.discount > 0 && (
+          <div className="absolute top-2 left-2 z-[70] bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded leading-none">
+            -{props?.item?.discount}%
           </div>
-        }
+        )}
 
-
-        <span className="discount flex items-center absolute top-[10px] left-[10px] z-50 bg-primary text-white rounded-lg p-1 text-[12px] font-[500]">
-          {props?.item?.discount}%
-        </span>
-
-        <div className="actions absolute top-[-20px] right-[5px] z-50 flex items-center gap-2 flex-col w-[50px] transition-all duration-300 group-hover:top-[15px] opacity-0 group-hover:opacity-100">
-
-          <Button className="!w-[35px] !h-[35px] !min-w-[35px] !rounded-full !bg-white  text-black hover:!bg-primary hover:text-white group" onClick={() => navigate(`/product/${props?.item?._id}`)}>
-            <MdZoomOutMap className="text-[18px] !text-black group-hover:text-white hover:!text-white" />
-          </Button>
-
-          <Button className="!w-[35px] !h-[35px] !min-w-[35px] !rounded-full !bg-white  text-black hover:!bg-primary hover:text-white group">
-            <IoGitCompareOutline className="text-[18px] !text-black group-hover:text-white hover:!text-white" />
-          </Button>
-
-          <Button className={`!w-[35px] !h-[35px] !min-w-[35px] !rounded-full !bg-white  text-black hover:!bg-primary hover:text-white group`}
-            onClick={() => handleAddToMyList(props?.item)}
-          >
-            {
-              isAddedInMyList === true ? <IoMdHeart  className="text-[18px] !text-primary group-hover:text-white hover:!text-white"/> :
-                <FaRegHeart className="text-[18px] !text-black group-hover:text-white hover:!text-white" />
-
-            }
-
-          </Button>
+        <div className="absolute top-2 right-2 z-50 flex items-center gap-1 transition-all duration-200 opacity-0 group-hover:opacity-100">
+          <button onClick={() => navigate(`/product/${props?.item?._id}`)}
+            className="w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow hover:bg-gray-900 hover:text-white transition-all">
+            <MdZoomOutMap className="text-sm" />
+          </button>
+          <button className="w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow hover:bg-gray-900 hover:text-white transition-all">
+            <IoGitCompareOutline className="text-sm" />
+          </button>
+          <button onClick={() => handleAddToMyList(props?.item)}
+            className={`w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow hover:bg-red-500 hover:text-white transition-all ${isAddedInMyList ? 'bg-red-500 text-white' : ''}`}>
+            {isAddedInMyList ? <IoMdHeart className="text-sm" /> : <FaRegHeart className="text-sm" />}
+          </button>
         </div>
       </div>
 
-      <div className="info p-3 py-5 pb-0 px-3 lg:px-8  w-full lg:w-[75%]">
-        <h6 className="text-[14px] lg:text-[16px] !font-[400]">
-          <Link to="/" className="link transition-all">
-           {props?.item?.brand}
-          </Link>
-        </h6>
-        <h3 className="text-[15px] lg:text-[20px] title mt-3 font-[500] mb-1 text-[#000]" style={{lineHeight:'25px'}}>
-          <Link to={`/product/${props?.item?._id}`} className="link transition-all">
-           {props?.item?.name}
-          </Link>
-        </h3>
+      <div className="flex-1 p-3 sm:p-4 flex flex-col gap-2 sm:gap-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold mb-0.5">
+            {props?.item?.brand}
+          </p>
+          <h3 className="text-sm font-semibold text-gray-800 mb-1 leading-snug line-clamp-2 sm:line-clamp-1">
+            <Link to={`/product/${props?.item?._id}`} className="hover:text-indigo-600 transition-colors">
+             {props?.item?.name}
+            </Link>
+          </h3>
 
-        <p className="text-[13px] lg:text-[15px] mb-3">
-         {props?.item?.description}
-        </p>
+          <p className="text-xs text-gray-500 mb-2 line-clamp-2 sm:line-clamp-1">
+           {props?.item?.description?.substr(0, 100)}...
+          </p>
 
-        <Rating name="size-small" value={props?.item?.rating} size="small" readOnly />
+          <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-0.5">
+              {[...Array(5)].map((_, i) => (
+                <FaStar key={i} className={`text-[10px] ${i < Math.floor(props?.item?.rating || 0) ? 'text-amber-400' : 'text-gray-300'}`} />
+              ))}
+            </div>
+            <span className="text-[10px] text-gray-500">({props?.item?.rating || 0})</span>
+          </div>
 
-        <div className="flex items-center gap-4">
-          <span className="oldPrice line-through text-gray-500 text-[14px] lg:text-[16px] font-[500]">
-          {formatPrice(props?.item?.oldPrice)}
-          </span>
-          <span className="price text-primary text-[14px] lg:text-[16px] font-[600]">
-            {formatPrice(props?.item?.price)}
-          </span>
+          <div className="flex items-center gap-2 flex-wrap">
+            {props?.item?.hasVariants && props?.item?.effectivePrice > 0 ? (
+              <>
+                <span className="text-base font-bold text-purple-600">
+                  From {formatPrice(props?.item?.effectivePrice)}
+                </span>
+                <span className="px-1.5 py-0.5 bg-purple-50 text-purple-600 text-[10px] font-bold rounded-full">
+                  Options
+                </span>
+              </>
+            ) : props?.item?.oldPrice > 0 && props?.item?.oldPrice > props?.item?.price ? (
+              <>
+                <span className="text-base font-bold text-gray-900">
+                  {formatPrice(props?.item?.price)}
+                </span>
+                <span className="text-xs text-gray-400 line-through">
+                  {formatPrice(props?.item?.oldPrice)}
+                </span>
+                {props?.item?.discount > 0 && (
+                  <span className="px-1.5 py-0.5 bg-rose-50 text-rose-600 text-[10px] font-bold rounded-full">
+                    -{props?.item?.discount}%
+                  </span>
+                )}
+              </>
+            ) : (
+              <span className="text-base font-bold text-gray-900">
+                {formatPrice(props?.item?.price)}
+              </span>
+            )}
+          </div>
         </div>
 
-        <div className="mt-3 w-[180px]">
-         {
-            isAdded === false ?
-
-              props?.item?.countInStock <= 0 ?
-                <Button className="btn-border flex w-full btn-sm gap-2 !bg-red-100 !text-red-600 !border-red-200 !cursor-not-allowed hover:!bg-red-100" size="small" disabled>
-                  Out of Stock
-                </Button>
-              :
-              <Button className="btn-org btn-border flex w-full btn-sm gap-2 " size="small"
-                onClick={() => addToCart(props?.item, context?.userData?._id, quantity)}>
-                <MdOutlineShoppingCart className="text-[18px]" /> Add to Cart
-              </Button>
-
-              :
-
+        <div className="border-t border-gray-100 pt-2 sm:pt-3 flex items-center justify-between sm:justify-end gap-3">
+          <div className="sm:hidden">
+            {props?.item?.hasVariants && props?.item?.effectivePrice > 0 ? (
+              <span className="text-sm font-bold text-purple-600">
+                From {formatPrice(props?.item?.effectivePrice)}
+              </span>
+            ) : (
               <>
-                {
-                  isLoading === true ?
-                    <Button className="addtocart btn-org btn-border flex w-full btn-sm gap-2 " size="small">
-                      <CircularProgress />
-                    </Button>
-
-                    :
-
-
-                    <div className="flex items-center justify-between overflow-hidden rounded-full border border-[rgba(0,0,0,0.1)]">
-                      <Button className="!min-w-[35px] !w-[35px] !h-[30px] !bg-[#f1f1f1]  !rounded-none" onClick={minusQty}><FaMinus className="text-[rgba(0,0,0,0.7)]" /></Button>
-                      <span>{quantity}</span>
-                      <Button className="!min-w-[35px] !w-[35px] !h-[30px] !bg-primary !rounded-none"
-                        onClick={addQty}>
-                        <FaPlus className="text-white" /></Button>
-                    </div>
-
-                }
+                <span className="text-sm font-bold text-gray-900">
+                  {formatPrice(props?.item?.price)}
+                </span>
+                {props?.item?.oldPrice > 0 && props?.item?.oldPrice > props?.item?.price && (
+                  <span className="text-xs text-gray-400 line-through ml-1">
+                    {formatPrice(props?.item?.oldPrice)}
+                  </span>
+                )}
               </>
+            )}
+          </div>
 
-          }
+          <div className="w-full sm:max-w-[160px] lg:max-w-[180px]">
+            {props?.item?.hasVariants ? (
+              <Link to={`/product/${props?.item?._id}`}>
+                <button className="flex w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-lg transition-all active:scale-[0.98] items-center justify-center gap-1.5">
+                  <MdZoomOutMap className="text-sm" /> Choose Options
+                </button>
+              </Link>
+            ) : isAdded === false ? (
+              (props?.item?.effectiveStock != null ? props?.item?.effectiveStock : props?.item?.countInStock) <= 0 ? (
+                <span className="flex w-full px-3 py-2 bg-gray-50 text-gray-400 text-xs font-medium rounded-lg text-center border border-gray-200 cursor-not-allowed">
+                  Out of Stock
+                </span>
+              ) : (
+                <button className="flex w-full px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white text-xs font-semibold rounded-lg transition-all active:scale-[0.98] items-center justify-center gap-1.5"
+                  onClick={() => handleAddToCart(props?.item)}>
+                  <MdOutlineShoppingCart className="text-sm" /> Add to Cart
+                </button>
+              )
+            ) : isLoading === true ? (
+              <span className="flex w-full px-4 py-2 bg-gray-50 text-gray-400 text-xs font-medium rounded-lg text-center border border-gray-200 items-center justify-center">
+                <CircularProgress size={16} />
+              </span>
+            ) : (
+              <div className="flex items-center rounded-lg border border-gray-200 overflow-hidden">
+                <button className="w-9 h-9 flex items-center justify-center bg-gray-50 hover:bg-gray-100 text-gray-600 transition-colors" onClick={minusQty}>
+                  <FaMinus className="text-[10px]" />
+                </button>
+                <span className="flex-1 text-xs font-semibold text-gray-800 text-center min-w-[32px]">{quantity}</span>
+                <button className="w-9 h-9 flex items-center justify-center bg-gray-900 text-white hover:bg-gray-800 transition-colors" onClick={addQty}>
+                  <FaPlus className="text-[10px]" />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
   );
-};
+});
 
 export default ProductItem;

@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState, useCallback } from "react";
+import React, { useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Checkbox from "@mui/material/Checkbox";
@@ -9,7 +9,7 @@ import { FaAngleUp } from "react-icons/fa6";
 import Rating from "@mui/material/Rating";
 import { MyContext } from "../../App";
 import { fetchDataFromApi } from "../../utils/api";
-import { useCurrency } from "../../context/CurrencyContext";
+import PriceFilter from "../PriceFilter";
 
 const Sidebar = ({ productsData, isLoading, setIsLoading, page, setTotalPages, categoryId, filters, setFilters }) => {
   const [isOpenCategoryFilter, setIsOpenCategoryFilter] = useState(true);
@@ -19,8 +19,7 @@ const Sidebar = ({ productsData, isLoading, setIsLoading, page, setTotalPages, c
   const [isOpenSizeFilter, setIsOpenSizeFilter] = useState(true);
   const [isOpenColorFilter, setIsOpenColorFilter] = useState(true);
 
-  const [priceRange, setPriceRange] = useState({ min: 0, max: 60000 });
-  const [price, setPrice] = useState([0, 60000]);
+  const priceRange = useMemo(() => ({ min: 0, max: 60000 }), []);
   const [categoryCounts, setCategoryCounts] = useState({});
   const [subCategoryCounts, setSubCategoryCounts] = useState({});
   const [brandCounts, setBrandCounts] = useState({});
@@ -29,7 +28,6 @@ const Sidebar = ({ productsData, isLoading, setIsLoading, page, setTotalPages, c
   const [expandedCategories, setExpandedCategories] = useState({});
 
   const context = useContext(MyContext);
-  const { formatPrice, convertBackToUSD } = useCurrency();
   const navigate = useNavigate();
   const location = useLocation();
   const { id: paramId } = useParams();
@@ -39,24 +37,6 @@ const Sidebar = ({ productsData, isLoading, setIsLoading, page, setTotalPages, c
     fetchFilterOptions();
   }, []);
 
-useEffect(() => {
-    if (productsData?.products && productsData.products.length > 0) {
-      const prices = productsData.products
-        .map(p => p.price)
-        .filter(p => p != null && p !== undefined && !isNaN(p));
-      
-      if (prices.length > 0) {
-        const minPrice = Math.floor(Math.min(...prices));
-        const maxPrice = Math.ceil(Math.max(...prices));
-        setPriceRange({ min: minPrice, max: maxPrice });
-        
-        // Only set price if user hasn't set a custom filter
-        if (filters.minPrice === 0 && filters.maxPrice === 60000) {
-          setPrice([minPrice, maxPrice]);
-        }
-      }
-    }
-  }, [productsData]);
 
   const fetchCategoryCounts = async () => {
     try {
@@ -422,52 +402,14 @@ useEffect(() => {
             {isOpenPriceFilter ? <FaAngleUp /> : <FaAngleDown />}
           </h3>
           <Collapse isOpened={isOpenPriceFilter}>
-            <div className="px-2">
-              <div className="relative h-12">
-                <div className="absolute top-1/2 left-0 right-0 h-1.5 bg-gray-200 rounded-full -translate-y-1/2">
-                  <div 
-                    className="absolute h-full bg-orange-500 rounded-full"
-                    style={{
-                      left: `${((price[0] - priceRange.min) / (priceRange.max - priceRange.min)) * 100}%`,
-                      right: `${100 - ((price[1] - priceRange.min) / (priceRange.max - priceRange.min)) * 100}%`
-                    }}
-                  />
-                </div>
-                <input
-                  type="range"
-                  min={priceRange.min}
-                  max={priceRange.max}
-                  value={price[0]}
-                  onChange={(e) => {
-                    const val = Math.min(Number(e.target.value), price[1] - 1);
-                    setPrice([val, price[1]]);
-                    setFilters({ ...filters, minPrice: val, maxPrice: price[1] });
-                  }}
-                  className="absolute top-1/2 left-0 w-full h-1 -translate-y-1/2 appearance-none bg-transparent pointer-events-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-orange-500 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:z-10 [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-orange-500 [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:shadow-md [&::-moz-range-thumb]:z-10"
-                />
-                <input
-                  type="range"
-                  min={priceRange.min}
-                  max={priceRange.max}
-                  value={price[1]}
-                  onChange={(e) => {
-                    const val = Math.max(Number(e.target.value), price[0] + 1);
-                    setPrice([price[0], val]);
-                    setFilters({ ...filters, minPrice: price[0], maxPrice: val });
-                  }}
-                  className="absolute top-1/2 left-0 w-full h-1 -translate-y-1/2 appearance-none bg-transparent pointer-events-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-orange-500 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:z-10 [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-orange-500 [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:shadow-md [&::-moz-range-thumb]:z-10"
-                />
-              </div>
-              <div className="flex justify-between items-center mt-2">
-                <div className="bg-gray-100 px-2 py-1 rounded text-xs font-medium text-gray-700 min-w-[70px] text-center">
-                  {formatPrice(price[0])}
-                </div>
-                <span className="text-gray-400 text-xs">to</span>
-                <div className="bg-gray-100 px-2 py-1 rounded text-xs font-medium text-gray-700 min-w-[70px] text-center">
-                  {formatPrice(price[1])}
-                </div>
-              </div>
-            </div>
+            <PriceFilter
+              products={productsData?.products || []}
+              minPrice={filters.minPrice || 0}
+              maxPrice={filters.maxPrice || priceRange.max}
+              onPriceChange={(range) => {
+                setFilters({ ...filters, minPrice: range[0], maxPrice: range[1] });
+              }}
+            />
           </Collapse>
         </div>
 

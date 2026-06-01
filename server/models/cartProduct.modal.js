@@ -50,6 +50,12 @@ const cartProductSchema = new mongoose.Schema({
         type:String,
         required:true
     },
+    variantId:{
+        type:String,
+    },
+    variantSku:{
+        type:String,
+    },
     countInStock:{
         type:Number,
         required:true

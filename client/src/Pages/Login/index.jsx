@@ -113,6 +113,7 @@ const Login = () => {
             
             const productItem = {
               ...item,
+              productTitle: item.name || item.productTitle,
               subTotal: parseInt(item.price * item.quantity),
               productId: item.productId,
             };
@@ -175,8 +176,9 @@ const Login = () => {
                   const item = JSON.parse(pendingCartItem);
                   localStorage.removeItem('pendingCartItem');
                   
-                  const productItem = {
+const productItem = {
                     ...item,
+                    productTitle: item.name || item.productTitle,
                     subTotal: parseInt(item.price * item.quantity),
                     productId: item.productId,
                   };
@@ -186,7 +188,7 @@ const Login = () => {
                       context.getCartItems();
                       history("/cart");
                     } else {
-                      history("/cart");
+                      history("/cart")
                     }
                   });
                 } else {

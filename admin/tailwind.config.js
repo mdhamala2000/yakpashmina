@@ -11,6 +11,10 @@ export default {
       },
       backgroundColor:{
         primary:'#3872fa'
+      },
+      fontFamily: {
+        sans: ['Inter', 'sans-serif'],
+        inter: ['Inter', 'sans-serif'],
       }
     },
   },

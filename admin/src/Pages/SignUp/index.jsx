@@ -20,8 +20,8 @@ import { MyContext } from "../../App.jsx";
 import { getAuth, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { firebaseApp } from "../../firebase";
 import { useEffect } from "react";
-const auth = getAuth(firebaseApp);
-const googleProvider = new GoogleAuthProvider();
+const auth = firebaseApp ? getAuth(firebaseApp) : null;
+const googleProvider = firebaseApp ? new GoogleAuthProvider() : null;
 
 const SignUp = () => {
     const [loadingGoogle, setLoadingGoogle] = React.useState(false);
@@ -40,9 +40,12 @@ const SignUp = () => {
 
     useEffect(() => {
         fetchDataFromApi("/api/logo").then((res) => {
-            localStorage.setItem('logo', res?.logo[0]?.logo)
-        })
-    }, [])
+            const logo = res?.logo?.[0]?.logo;
+            if (logo) {
+                localStorage.setItem('logo', logo);
+            }
+        });
+    }, []);
 
     const onChangeInput = (e) => {
         const { name, value } = e.target;
@@ -108,6 +111,10 @@ const SignUp = () => {
 
 
     const authWithGoogle = () => {
+        if (!auth || !googleProvider) {
+            context.alertBox("error", "Google sign-in is unavailable. Firebase is not configured.");
+            return;
+        }
 
         setLoadingGoogle(true);
 
@@ -177,13 +184,13 @@ const SignUp = () => {
                 </Link>
 
                 <div className="hidden sm:flex items-center gap-0">
-                    <NavLink to="/login" exact={true} activeClassName="isActive">
+                    <NavLink to="/login" className={({ isActive }) => isActive ? "isActive" : ""}>
                         <Button className="!rounded-full !text-[rgba(0,0,0,0.8)] !px-5 flex gap-1">
                             <CgLogIn className="text-[18px]" /> Login
                         </Button>
                     </NavLink>
 
-                    <NavLink to="/sign-up" exact={true} activeClassName="isActive">
+                    <NavLink to="/sign-up" className={({ isActive }) => isActive ? "isActive" : ""}>
                         <Button className="!rounded-full !text-[rgba(0,0,0,0.8)] !px-5 flex gap-1">
                             <FaRegUser className="text-[15px]" /> Sign Up
                         </Button>
@@ -209,6 +216,7 @@ const SignUp = () => {
                         loading={loadingGoogle}
                         loadingPosition="end"
                         variant="outlined"
+                        disabled={!auth || !googleProvider}
                         className="!bg-none !py-2 !text-[15px] !capitalize !px-5 !text-[rgba(0,0,0,0.7)]"
                     >
                         Signin with Google

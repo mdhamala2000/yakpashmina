@@ -17,10 +17,9 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { fetchDataFromApi } from "../../utils/api";
 import AddProduct from "../../Pages/Products/addProduct";
 import AddHomeSlide from "../../Pages/HomeSliderBanners/addHomeSlide";
-import AddCategory from "../../Pages/Categegory/addCategory";
-import AddSubCategory from "../../Pages/Categegory/addSubCategory";
-import AddAddress from "../../Pages/Address/addAddress";
-import EditCategory from "../../Pages/Categegory/editCategory";
+import AddCategory from "../../Pages/Category/addCategory";
+import AddSubCategory from "../../Pages/Category/addSubCategory";
+import EditCategory from "../../Pages/Category/editCategory";
 
 
 
@@ -57,6 +56,13 @@ const Header = () => {
   const [anchorMyAcc, setAnchorMyAcc] = React.useState(null);
   const openMyAcc = Boolean(anchorMyAcc);
 
+  const [anchorNotif, setAnchorNotif] = React.useState(null);
+  const openNotif = Boolean(anchorNotif);
+
+  const [notifications, setNotifications] = React.useState([]);
+  const [unreadCount, setUnreadCount] = React.useState(0);
+  const [loadingNotif, setLoadingNotif] = React.useState(false);
+
 
   const history = useNavigate();
 
@@ -65,6 +71,13 @@ const Header = () => {
   };
   const handleCloseMyAcc = () => {
     setAnchorMyAcc(null);
+  };
+
+  const handleClickNotif = (event) => {
+    setAnchorNotif(event.currentTarget);
+  };
+  const handleCloseNotif = () => {
+    setAnchorNotif(null);
   };
 
   const context = useContext(MyContext);
@@ -88,6 +101,47 @@ const Header = () => {
     }
 
   }, [context?.isLogin]);
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      setLoadingNotif(true);
+      try {
+        const res = await fetchDataFromApi("/api/notifications");
+        if (res && Array.isArray(res)) {
+          setNotifications(res);
+          setUnreadCount(res.filter(n => !n.isRead)?.length || 0);
+        } else if (res?.notifications && Array.isArray(res.notifications)) {
+          setNotifications(res.notifications);
+          setUnreadCount(res.notifications.filter(n => !n.isRead)?.length || 0);
+        } else {
+          const ordersRes = await fetchDataFromApi("/api/orders?limit=5&sort=-createdAt");
+          if (ordersRes?.orders) {
+            const orderNotifications = ordersRes.orders.map(order => ({
+              _id: order._id,
+              title: `New Order #${order.orderId || order._id?.slice(-6)}`,
+              message: `Order placed for Rs.${order.total}`,
+              type: 'order',
+              createdAt: order.createdAt,
+              isRead: false
+            }));
+            setNotifications(orderNotifications);
+            setUnreadCount(orderNotifications.length);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching notifications:", error);
+      } finally {
+        setLoadingNotif(false);
+      }
+    };
+
+    fetchNotifications();
+  }, []);
+
+  const markAllRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    setUnreadCount(0);
+  };
 
 
   const logout = () => {
@@ -136,11 +190,76 @@ const Header = () => {
         </div>
 
         <div className="part2  flex items-center justify-end gap-5">
-          <IconButton aria-label="cart">
-            <StyledBadge badgeContent={4} color="secondary">
+          <IconButton aria-label="notifications" onClick={handleClickNotif}>
+            <StyledBadge badgeContent={unreadCount} color="secondary">
               <FaRegBell />
             </StyledBadge>
           </IconButton>
+
+          <Menu
+            anchorEl={anchorNotif}
+            id="notifications-menu"
+            open={openNotif}
+            onClose={handleCloseNotif}
+            slotProps={{
+              paper: {
+                elevation: 0,
+                sx: {
+                  overflow: "visible",
+                  filter: "drop-shadow(0px 2px 8px rgba(0,0,0,0.32))",
+                  mt: 1.5,
+                  width: "320px",
+                  maxHeight: "450px",
+                },
+              },
+            }}
+            transformOrigin={{ horizontal: "right", vertical: "top" }}
+            anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
+          >
+            <div className="px-3 py-2 border-b flex items-center justify-between">
+              <h3 className="text-[15px] font-semibold">Notifications</h3>
+              {unreadCount > 0 && (
+                <span 
+                  className="text-[12px] text-blue-600 cursor-pointer hover:underline"
+                  onClick={markAllRead}
+                >
+                  Mark all read
+                </span>
+              )}
+            </div>
+            <div className="max-h-[350px] overflow-y-auto">
+              {loadingNotif ? (
+                <div className="p-4 text-center text-gray-500">Loading...</div>
+              ) : notifications.length === 0 ? (
+                <div className="p-4 text-center text-gray-500">No notifications</div>
+              ) : (
+                notifications.map((notif, index) => (
+                  <MenuItem 
+                    key={notif._id || index} 
+                    onClick={handleCloseNotif}
+                    className={!notif.isRead ? "bg-blue-50" : ""}
+                  >
+                    <div className="flex flex-col gap-1 py-1 w-full">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[14px] font-medium">{notif.title}</p>
+                        {!notif.isRead && (
+                          <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                        )}
+                      </div>
+                      <p className="text-[12px] text-gray-500 truncate">{notif.message}</p>
+                      <p className="text-[11px] text-gray-400">
+                        {notif.createdAt ? new Date(notif.createdAt).toLocaleString() : 'Just now'}
+                      </p>
+                    </div>
+                  </MenuItem>
+                ))
+              )}
+            </div>
+            <Divider />
+            <MenuItem onClick={handleCloseNotif} className="justify-center">
+              <span className="text-[14px] text-blue-600">View all notifications</span>
+            </MenuItem>
+          </Menu>
 
           {context.isLogin === true ? (
             <div className="relative">

@@ -27,6 +27,34 @@ const orderSchema = new mongoose.Schema({
             },
             subTotal: {
                 type: Number
+            },
+            color: {
+                type: String,
+                default: ''
+            },
+            size: {
+                type: String,
+                default: ''
+            },
+            weight: {
+                type: String,
+                default: ''
+            },
+            ram: {
+                type: String,
+                default: ''
+            },
+            materials: {
+                type: String,
+                default: ''
+            },
+            variantId: {
+                type: String,
+                default: ''
+            },
+            variantSku: {
+                type: String,
+                default: ''
             }
         }
     ],
@@ -58,6 +86,10 @@ const orderSchema = new mongoose.Schema({
         type: String,
         default: "INR"
     },
+    currencyRate: {
+        type: Number,
+        default: 1
+    },
     discountCode: {
         type: String,
         default: null
@@ -73,6 +105,14 @@ const orderSchema = new mongoose.Schema({
     shippingCost: {
         type: Number,
         default: 0
+    },
+    paymentExpiresAt: {
+        type: Date,
+        default: null
+    },
+    adminNote: {
+        type: String,
+        default: ''
     }
 }, {
     timestamps: true

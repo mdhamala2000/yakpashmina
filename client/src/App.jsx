@@ -21,9 +21,12 @@ import "./App.css";
 import "./responsive.css";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
+import PrivateRoute from "./components/PrivateRoute";
 import Home from "./Pages/Home";
 import ProductListing from "./Pages/ProductListing";
-import { ProductDetails } from "./Pages/ProductDetails";
+import ProductDetails from "./Pages/ProductDetails";
+import CategoryPage from "./Pages/Category";
+import ProductPage from "./Pages/Product";
 import { createContext } from "react";
 import { FaWhatsapp, FaEnvelope, FaPhone } from "react-icons/fa";
 
@@ -42,6 +45,7 @@ import { fetchDataFromApi, postData } from "./utils/api";
 import Address from "./Pages/MyAccount/address";
 import { OrderSuccess } from "./Pages/Orders/success";
 import { OrderFailed } from "./Pages/Orders/failed";
+import AirwallexPayment from "./Pages/AirwallexPayment";
 import SearchPage from "./Pages/Search";
 import { CurrencyProvider } from "./context/CurrencyContext";
 import BlogDetails from "./Pages/Blog/BlogDetails";
@@ -53,9 +57,11 @@ import PrivacyPolicy from "./Pages/PrivacyPolicy";
 import RefundReturnPolicy from "./Pages/RefundReturnPolicy";
 import ShippingPolicy from "./Pages/ShippingPolicy";
 import TermsOfService from "./Pages/TermsOfService";
+import Sitemap from "./Pages/Sitemap";
 import NotFound from "./Pages/NotFound";
-import AirwallexPayment from "./Pages/AirwallexPayment";
 import OrderTracking from "./Pages/OrderTracking";
+import StripeDashboard from "./components/StripeDashboard";
+import CompareModal from "./components/CompareModal";
 
 
 const MyContext = createContext();
@@ -84,6 +90,8 @@ function App() {
   const [isFilterBtnShow, setisFilterBtnShow] = useState(false);
 
   const [openSearchPanel, setOpenSearchPanel] = useState(false);
+  const [compareList, setCompareList] = useState([]);
+  const [openCompareModal, setOpenCompareModal] = useState(false);
 
   const handleOpenProductDetailsModal = (status, item) => {
     setOpenProductDetailsModal({
@@ -200,20 +208,22 @@ function App() {
     }
 
     const data = {
-      productTitle: product?.name,
-      image: product?.image,
-      rating: product?.rating,
-      price: product?.price,
-      oldPrice: product?.oldPrice,
-      discount: product?.discount,
+      productTitle: product?.name || product?.productTitle || 'Unnamed Product',
+      image: product?.images?.[0] || product?.image || '',
+      rating: product?.rating || 0,
+      price: product?.price || 0,
+      oldPrice: product?.oldPrice || 0,
+      discount: product?.discount || 0,
       quantity: quantity,
-      subTotal: parseInt(product?.price * quantity),
-      productId: product?._id,
-      countInStock: product?.countInStock,
-      brand: product?.brand,
-      size: product?.size,
-      weight: product?.weight,
-      ram: product?.ram
+      subTotal: parseInt((product?.price || 0) * quantity),
+      productId: product?._id || product?.productId,
+      countInStock: product?.countInStock || 0,
+      brand: product?.brand || '',
+      size: product?.size || '',
+      weight: product?.weight || '',
+      ram: product?.ram || '',
+      color: product?.color || '',
+      materials: product?.materials || ''
     }
 
 
@@ -291,7 +301,11 @@ function App() {
     setisFilterBtnShow,
     isFilterBtnShow,
     setOpenSearchPanel,
-    openSearchPanel
+    openSearchPanel,
+    compareList,
+    setCompareList,
+    openCompareModal,
+    setOpenCompareModal
   };
 
   return (
@@ -310,18 +324,25 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/products" element={<ProductListing />} />
               <Route path="/product/:id" element={<ProductDetails />} />
+              {/* ID-based route must come before slug routes */}
+              <Route path="/category/:id" element={<ProductListing />} />
+              {/* SEO-friendly routes */}
+              <Route path="/product/slug/:productSlug" element={<ProductPage />} />
+              <Route path="/category/:categorySlug" element={<CategoryPage />} />
+              <Route path="/category/:categorySlug/:subCategorySlug" element={<CategoryPage />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/cart" element={<CartPage />} />
               <Route path="/verify" element={<Verify />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/checkout" element={<Checkout />} />
-              <Route path="/my-account" element={<MyAccount />} />
-              <Route path="/my-list" element={<MyList />} />
-              <Route path="/my-orders" element={<Orders />} />
-              <Route path="/order/success" element={<OrderSuccess />} />
-              <Route path="/order/failed" element={<OrderFailed />} />
-              <Route path="/address" element={<Address />} />
+              <Route path="/checkout" element={<PrivateRoute><Checkout /></PrivateRoute>} />
+              <Route path="/my-account" element={<PrivateRoute><MyAccount /></PrivateRoute>} />
+              <Route path="/my-list" element={<PrivateRoute><MyList /></PrivateRoute>} />
+              <Route path="/my-orders" element={<PrivateRoute><Orders /></PrivateRoute>} />
+<Route path="/order/success" element={<OrderSuccess />} />
+<Route path="/order/failed" element={<OrderFailed />} />
+<Route path="/order/airwallex-return" element={<AirwallexPayment />} />
+              <Route path="/address" element={<PrivateRoute><Address /></PrivateRoute>} />
               <Route path="/search" element={<SearchPage />} />
               <Route path="/blog/:id" element={<BlogDetails />} />
               <Route path="/blog" element={<Blog />} />
@@ -332,14 +353,15 @@ function App() {
               <Route path="/refund-return-policy" element={<RefundReturnPolicy />} />
               <Route path="/shipping-policy" element={<ShippingPolicy />} />
               <Route path="/terms-of-service" element={<TermsOfService />} />
+              <Route path="/sitemap" element={<Sitemap />} />
               <Route path="/order-tracking" element={<OrderTracking />} />
-              <Route path="/payment/airwallex" element={<AirwallexPayment />} />
-              <Route path="/category/:id" element={<ProductListing />} />
+              <Route path="/admin/stripe-dashboard" element={<PrivateRoute><StripeDashboard /></PrivateRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             <Footer />
-            
-            <div className={`whatsapp-chat-fixed ${values?.openCartPanel ? 'cart-open' : ''}`}>
+              <CompareModal />
+              
+              <div className={`whatsapp-chat-fixed ${values?.openCartPanel ? 'cart-open' : ''}`}>
               <div className="whatsapp-float-container">
                 <div 
                   className={`whatsapp-float-main ${whatsappOpen ? 'active' : ''}`}

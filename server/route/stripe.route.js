@@ -1,11 +1,33 @@
 import express from 'express';
 import Stripe from 'stripe';
 import dotenv from 'dotenv';
+import auth from '../middlewares/auth.js';
 import PaymentGateway from '../models/paymentGateway.model.js';
+import OrderModel from '../models/order.model.js';
+import ProductModel from '../models/product.modal.js';
+import VariantModel from '../models/variant.model.js';
+import ProcessedWebhookEvent from '../models/processedWebhookEvent.model.js';
+import sendEmailFun from '../config/sendEmail.js';
+import OrderConfirmationEmail from '../utils/orderEmailTemplate.js';
 
 dotenv.config();
 
 const router = express.Router();
+
+// Validate payment amount
+const validateAmount = (req, res, next) => {
+  const amount = req.body.amount;
+  if (!amount || typeof amount !== 'number' || amount <= 0) {
+    return res.status(400).json({ error: true, message: 'Invalid or missing amount' });
+  }
+  if (amount > 999999.99) {
+    return res.status(400).json({ error: true, message: 'Amount exceeds maximum limit' });
+  }
+  if (amount < 0.50) {
+    return res.status(400).json({ error: true, message: 'Amount must be at least $0.50' });
+  }
+  next();
+};
 
 // PRIORITY: .env → Database → Fallback (most secure)
 const getStripeKeys = async () => {
@@ -14,6 +36,18 @@ const getStripeKeys = async () => {
   
   const envHasValidKey = envSecretKey && envSecretKey.startsWith('sk_') && envSecretKey.length > 20;
   
+  // Always prefer .env if it has valid keys
+  if (envHasValidKey && envPublishableKey) {
+    return {
+      secretKey: envSecretKey,
+      publishableKey: envPublishableKey,
+      webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
+      environment: envSecretKey.startsWith('sk_live') ? 'live' : 'test',
+      source: 'env'
+    };
+  }
+  
+  // Fall back to .env even if only secret key exists (for server-side operations)
   if (envHasValidKey) {
     return {
       secretKey: envSecretKey,
@@ -29,7 +63,7 @@ const getStripeKeys = async () => {
     if (gateway && gateway.isActive && gateway.apiSecret && gateway.apiSecret.startsWith('sk_')) {
       return {
         secretKey: gateway.apiSecret,
-        publishableKey: gateway.publishableKey || '',
+        publishableKey: gateway.publishableKey || envPublishableKey || '',
         webhookSecret: gateway.webhookSecret || '',
         environment: gateway.environment,
         source: 'database'
@@ -39,7 +73,7 @@ const getStripeKeys = async () => {
     console.error('Error fetching Stripe from DB:', e);
   }
   
-  return { secretKey: '', publishableKey: '', webhookSecret: '', environment: 'test', source: 'none' };
+  return { secretKey: '', publishableKey: envPublishableKey || '', webhookSecret: '', environment: 'test', source: 'none' };
 };
 
 let stripeInstance = null;
@@ -77,11 +111,11 @@ const testStripeConnection = async () => {
 };
 
 // Get Stripe config for ADMIN (includes connection status)
-router.get('/config', async (req, res) => {
+router.get('/config', auth, async (req, res) => {
   try {
     const config = await getStripeKeys();
     const connection = await testStripeConnection();
-    
+
     return res.status(200).json({
       error: false,
       configured: !!config.secretKey,
@@ -125,7 +159,7 @@ router.get('/paypal-config', async (req, res) => {
 });
 
 // Create Payment Intent (for checkout)
-router.post('/create-payment-intent', async (req, res) => {
+router.post('/create-payment-intent', auth, validateAmount, async (req, res) => {
   try {
     const { amount, currency = 'usd', metadata = {} } = req.body;
 
@@ -142,6 +176,7 @@ router.post('/create-payment-intent', async (req, res) => {
       amount: Math.round(amount * 100),
       currency,
       automatic_payment_methods: { enabled: true },
+      // Don't auto-confirm - let frontend handle 3D Secure properly
       metadata,
     });
 
@@ -162,7 +197,7 @@ router.post('/create-payment-intent', async (req, res) => {
 });
 
 // Get Payment Intent status
-router.get('/payment-intent/:id', async (req, res) => {
+router.get('/payment-intent/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
     const stripe = await getStripe();
@@ -189,7 +224,7 @@ router.get('/payment-intent/:id', async (req, res) => {
 });
 
 // Confirm payment
-router.post('/confirm-payment', async (req, res) => {
+router.post('/confirm-payment', auth, validateAmount, async (req, res) => {
   try {
     const { paymentIntentId } = req.body;
     const stripe = await getStripe();
@@ -221,11 +256,22 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
   const config = await getStripeKeys();
   const sig = req.headers['stripe-signature'];
   const webhookSecret = config.webhookSecret;
+  const OWNER_EMAIL = process.env.OWNER_EMAIL || 'mdhamala2000@gmail.com';
 
   try {
+    if (!webhookSecret) {
+      console.error('SECURITY: Stripe webhook secret not configured');
+      return res.status(400).json({ error: true, message: 'Webhook not properly configured' });
+    }
+
+    if (!sig) {
+      console.error('SECURITY: Missing stripe signature on webhook');
+      return res.status(401).json({ error: true, message: 'Missing signature' });
+    }
+
     let event;
     const stripe = await getStripe();
-    
+
     if (!stripe) {
       return res.status(500).json({ error: true, message: 'Stripe not configured' });
     }
@@ -233,20 +279,147 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
     if (webhookSecret && sig) {
       event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
     } else {
-      event = JSON.parse(req.body);
+      console.error('SECURITY: Webhook received without valid signature verification');
+      return res.status(401).json({ error: true, message: 'Invalid webhook signature' });
+    }
+
+    const eventId = event.id;
+
+    const alreadyProcessed = await ProcessedWebhookEvent.findOne({ eventId, source: 'stripe' });
+    if (alreadyProcessed) {
+      return res.status(200).json({ received: true, duplicate: true });
     }
 
     switch (event.type) {
       case 'payment_intent.succeeded':
-        console.log('Payment succeeded:', event.data.object.id);
+        try {
+          const paymentIntent = event.data.object;
+          let order = await OrderModel.findOne({ paymentId: paymentIntent.id });
+          
+          if (!order && paymentIntent.metadata?.orderData) {
+            try {
+              const orderData = JSON.parse(paymentIntent.metadata.orderData);
+              const productIds = (orderData.products || []).map(p => p.productId).filter(Boolean);
+              const variantIds = (orderData.products || []).map(p => p.variantId).filter(Boolean);
+              
+              const [dbProducts, dbVariants] = await Promise.all([
+                productIds.length > 0 ? ProductModel.find({ _id: { $in: productIds } }).lean() : [],
+                variantIds.length > 0 ? VariantModel.find({ _id: { $in: variantIds } }).lean() : []
+              ]);
+              
+              const priceMap = {};
+              for (const p of dbProducts) {
+                priceMap[p._id.toString()] = p.price;
+              }
+              const variantPriceMap = {};
+              for (const v of dbVariants) {
+                variantPriceMap[v._id.toString()] = v.price;
+              }
+
+              const syncedProducts = (orderData.products || []).map(item => {
+                const quantity = parseInt(item.quantity) || 1;
+                let unitPrice;
+                if (item.variantId) {
+                  unitPrice = variantPriceMap[item.variantId];
+                }
+                if (unitPrice === undefined) {
+                  unitPrice = priceMap[item.productId];
+                }
+                unitPrice = unitPrice !== undefined ? unitPrice : (parseFloat(item.price) || 0);
+                return {
+                  ...item,
+                  perUnit: unitPrice,
+                  price: unitPrice * quantity,
+                  subTotal: unitPrice * quantity
+                };
+              });
+
+              const computedSubTotal = syncedProducts.reduce((sum, p) => sum + (p.price || 0), 0);
+              const computedShipping = parseFloat(orderData.shippingCost) || 0;
+              const computedDiscount = parseFloat(orderData.discountAmount) || 0;
+              const computedTotal = computedSubTotal + computedShipping - computedDiscount;
+              
+              order = new OrderModel({
+                userId: orderData.userId || null,
+                products: syncedProducts,
+                paymentId: paymentIntent.id,
+                payment_method: 'stripe',
+                payment_status: 'PAID',
+                delivery_address: orderData.delivery_address,
+                totalAmt: computedTotal,
+                subTotal: computedSubTotal,
+                shippingCost: computedShipping,
+                currency: 'USD',
+                discountCode: orderData.discountCode || null,
+                discountAmount: computedDiscount
+              });
+              await order.save();
+            } catch (createError) {
+              console.error('Error creating order from webhook:', createError);
+            }
+          }
+          
+          if (order) {
+            await OrderModel.findByIdAndUpdate(order._id, { payment_status: 'PAID' });
+
+            for (const item of order.products || []) {
+              const qty = parseInt(item.quantity) || 1;
+              if (item.variantId) {
+                await VariantModel.findOneAndUpdate(
+                  { _id: item.variantId, stock: { $gte: qty } },
+                  { $inc: { stock: -qty } }
+                );
+              } else {
+                await ProductModel.findOneAndUpdate(
+                  { _id: item.productId, countInStock: { $gte: qty } },
+                  { $inc: { countInStock: -qty, sale: qty } }
+                );
+              }
+            }
+            
+            const customerEmail = order.delivery_address?.email;
+            const orderId = order._id.toString().slice(-8).toUpperCase();
+            
+            if (customerEmail) {
+              await sendEmailFun({
+                sendTo: [customerEmail],
+                subject: `Order Confirmed - #${orderId} | Yak Pashmina`,
+                text: '',
+                html: OrderConfirmationEmail(order.delivery_address?.firstName || 'Customer', order)
+              });
+            }
+            
+            await sendEmailFun({
+              sendTo: [OWNER_EMAIL],
+              subject: `New Stripe Payment - #${orderId} - USD ${paymentIntent.amount / 100}`,
+              text: '',
+              html: OrderConfirmationEmail(order.delivery_address?.firstName || 'Customer', order, true)
+            });
+          }
+        } catch (emailError) {
+          console.error('Error processing successful payment:', emailError);
+        }
         break;
       case 'payment_intent.payment_failed':
-        console.log('Payment failed:', event.data.object.id);
+        try {
+          const paymentIntent = event.data.object;
+          const order = await OrderModel.findOne({ paymentId: paymentIntent.id });
+          if (order) {
+            await OrderModel.findByIdAndUpdate(order._id, {
+              payment_status: 'FAILED',
+              order_status: 'cancelled'
+            });
+            console.log(`Payment failed for order ${order._id}: ${paymentIntent.last_payment_error?.message}`);
+          }
+        } catch (failError) {
+          console.error('Error handling failed payment:', failError);
+        }
         break;
       default:
-        console.log(`Unhandled event type: ${event.type}`);
+        break;
     }
 
+    await ProcessedWebhookEvent.create({ eventId, source: 'stripe' }).catch(() => {});
     return res.status(200).json({ received: true });
   } catch (error) {
     console.error('Webhook error:', error);

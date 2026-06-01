@@ -58,46 +58,70 @@ export const Products = () => {
   }, [context?.catData]);
 
   useEffect(() => {
+    if (context?.productsRefreshTrigger > 0) {
+      getProducts(page, rowsPerPage);
+    }
+  }, [context?.productsRefreshTrigger]);
+
+  useEffect(() => {
     const catId = searchParams.get('catId');
     const subCatId = searchParams.get('subCatId');
-    
+
+    console.log('Products page - catId:', catId, 'subCatId:', subCatId);
+
     if (catId) {
+      console.log('Fetching products for category:', catId);
       setProductCat(catId);
       setCategoryFilter(catId);
       setIsloading(true);
       fetchDataFromApi(`/api/product/getAllProductsByCatId/${catId}`).then((res) => {
-        if (res?.error === false) {
+        console.log('API Response for catId:', res);
+        if (res?.error === false && res?.products) {
           setProductData({
             error: false,
             success: true,
-            products: res?.products,
-            total: res?.products?.length,
+            products: res.products,
+            total: res.products.length,
             page: 0,
             totalPages: 1,
-            totalCount: res?.products?.length
+            totalCount: res.products.length
           });
           setTimeout(() => setIsloading(false), 300);
+        } else {
+          console.log('No products found or error:', res);
+          setIsloading(false);
         }
+      }).catch((err) => {
+        console.error('API Error:', err);
+        setIsloading(false);
       });
       searchParams.delete('catId');
       setSearchParams(searchParams);
     } else if (subCatId) {
+      console.log('Fetching products for subcategory:', subCatId);
       setProductSubCat(subCatId);
       setSubcategoryFilter(subCatId);
       setIsloading(true);
       fetchDataFromApi(`/api/product/getAllProductsBySubCatId/${subCatId}`).then((res) => {
-        if (res?.error === false) {
+        console.log('API Response for subCatId:', res);
+        if (res?.error === false && res?.products) {
           setProductData({
             error: false,
             success: true,
-            products: res?.products,
-            total: res?.products?.length,
+            products: res.products,
+            total: res.products.length,
             page: 0,
             totalPages: 1,
-            totalCount: res?.products?.length
+            totalCount: res.products.length
           });
           setTimeout(() => setIsloading(false), 300);
+        } else {
+          console.log('No products found or error:', res);
+          setIsloading(false);
         }
+      }).catch((err) => {
+        console.error('API Error:', err);
+        setIsloading(false);
       });
       searchParams.delete('subCatId');
       setSearchParams(searchParams);
@@ -339,8 +363,30 @@ export const Products = () => {
 
   const getStockStatus = (count) => {
     if (count === 0) return statusConfig.outOfStock;
-    if (count < 10) return statusConfig.lowStock;
+    if (count <= 5) return statusConfig.lowStock;
     return statusConfig.inStock;
+  };
+
+  const getProductPrice = (product) => {
+    if (product.hasVariants) {
+      if (product.effectivePrice != null) {
+        return `From ${formatPrice(product.effectivePrice)}`;
+      }
+      return 'Variant';
+    }
+    if (product?.oldPrice > 0 && product?.oldPrice > product?.price) {
+      return (
+        <>{formatPrice(product?.oldPrice)} <span className="text-gray-400 line-through text-[9px]">{formatPrice(product?.price)}</span></>
+      );
+    }
+    return formatPrice(product?.price);
+  };
+
+  const getProductStock = (product) => {
+    if (product.hasVariants) {
+      return product.effectiveStock ?? product.variantCount ?? 0;
+    }
+    return product.countInStock;
   };
 
   const getSubcategories = (parentId) => {
@@ -365,68 +411,80 @@ export const Products = () => {
   };
 
   return (
-    <div className="w-full">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-4 border-b border-gray-100">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+    <div className="w-full h-full">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 h-full flex flex-col">
+        {/* Compact Header */}
+        <div className="p-3 border-b border-gray-100 flex-shrink-0">
+          <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/25">
-                <FaShoppingBag className="text-white text-base" />
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
+                <FaShoppingBag className="text-white text-sm" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-gray-900">Products</h2>
-                <span className="text-sm text-gray-500">{productData?.products?.length || 0} products</span>
+                <h2 className="text-base font-bold text-gray-900">Products</h2>
+                <span className="text-xs text-gray-500">{productData?.products?.length || 0} items</span>
               </div>
             </div>
             
-            <div className="flex flex-col sm:flex-row gap-2">
-              <div className="relative flex-1">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                  <FaSearch />
-                </div>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <FaSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
                 <input
                   type="text"
-                  placeholder="Search products..."
+                  placeholder="Search..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 pr-3 py-2 w-full border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm bg-gray-50/50 transition-all"
+                  className="pl-8 pr-3 py-1.5 w-40 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-primary/30"
                 />
               </div>
               
-              <div className="flex gap-2">
-                <select
-                  value={sortBy}
-                  onChange={(e) => { setSortBy(e.target.value); getProducts(0, rowsPerPage); }}
-                  className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none text-sm bg-white flex items-center"
-                >
-                  <option value="newest">Newest</option>
-                  <option value="price-low">Price: Low to High</option>
-                  <option value="price-high">Price: High to Low</option>
-                  <option value="name">Name</option>
-                </select>
-                
+              <select
+                value={sortBy}
+                onChange={(e) => { setSortBy(e.target.value); getProducts(0, rowsPerPage); }}
+                className="px-2 py-1.5 border border-gray-200 rounded-lg text-xs bg-white"
+              >
+                <option value="newest">Newest</option>
+                <option value="price-low">Price ↑</option>
+                <option value="price-high">Price ↓</option>
+                <option value="name">Name</option>
+              </select>
+              
+              <button
+                onClick={() => { setTempCategoryFilter(categoryFilter); setTempSubcategoryFilter(subcategoryFilter); setOpenFilterDrawer(true); }}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 border rounded-lg text-xs transition-all ${activeFilterCount > 0 ? 'border-primary bg-primary/5 text-primary' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+              >
+                <FaFilter className="text-[10px]" />
+                {activeFilterCount > 0 && (
+                  <span className="w-4 h-4 rounded-full bg-primary text-white text-[9px] flex items-center justify-center">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
+              
+              <div className="flex border border-gray-200 rounded-lg overflow-hidden">
                 <button
-                  onClick={() => { setTempCategoryFilter(categoryFilter); setTempSubcategoryFilter(subcategoryFilter); setOpenFilterDrawer(true); }}
-                  className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg bg-white hover:bg-gray-50 transition-all"
+                  onClick={() => setViewMode('grid')}
+                  className={`p-1.5 ${viewMode === 'grid' ? 'bg-primary text-white' : 'text-gray-500 hover:bg-gray-50'}`}
                 >
-                  <FaFilter className="text-gray-500 text-xs" />
-                  <span className="text-sm text-gray-600">Filter</span>
-                  {activeFilterCount > 0 && (
-                    <span className="w-4 h-4 rounded-full bg-primary text-white text-[10px] flex items-center justify-center font-medium">
-                      {activeFilterCount}
-                    </span>
-                  )}
+                  <FaThLarge className="text-xs" />
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`p-1.5 ${viewMode === 'list' ? 'bg-primary text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+                >
+                  <FaThList className="text-xs" />
                 </button>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="p-4 flex items-center justify-between border-b border-gray-100">
-          <div className="flex items-center gap-3">
+        {/* Action Bar */}
+        <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-2">
             {sortedIds?.length > 0 && (
               <>
-                <span className="text-sm font-medium text-gray-600 bg-gray-100 px-3 py-1.5 rounded-full">
+                <span className="text-xs font-medium text-gray-600 bg-gray-100 px-2 py-1 rounded">
                   {sortedIds.length} selected
                 </span>
                 <Button 
@@ -435,7 +493,7 @@ export const Products = () => {
                   size="small"
                   onClick={deleteMultipleProduct}
                   startIcon={<FaTrash />}
-                  sx={{ borderRadius: '8px', textTransform: 'none' }}
+                  className="!text-xs !py-0.5 !px-2"
                 >
                   Delete
                 </Button>
@@ -444,177 +502,152 @@ export const Products = () => {
           </div>
           <Button
             variant="contained"
+            size="small"
             startIcon={<FaPlus />}
             onClick={() => context.setIsOpenFullScreenPanel({
               open: true,
               model: 'Add Product'
             })}
-            sx={{ 
-              borderRadius: '10px',
-              textTransform: 'none',
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              boxShadow: '0 4px 15px 0 rgba(102, 126, 234, 0.4)',
-              padding: '8px 20px',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #5a6fd6 0%, #6a4190 100%)',
-              }
-            }}
+            className="!bg-gradient-to-r !from-blue-600 !to-indigo-600 !text-xs !py-1 !px-3 !normal-case"
           >
             Add Product
           </Button>
         </div>
 
         {isLoading ? (
-          <div className="flex items-center justify-center min-h-[500px]">
+          <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <CircularProgress sx={{ color: '#667eea' }} />
-              <p className="text-gray-500 mt-4">Loading products...</p>
+              <CircularProgress size={24} sx={{ color: '#667eea' }} />
+              <p className="text-gray-400 text-xs mt-2">Loading...</p>
             </div>
           </div>
-        ) : productData?.products?.length === 0 ? (
-          <div className="flex items-center justify-center min-h-[500px]">
-            <div className="text-center p-8">
-              <div className="w-24 h-24 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-                <FaRegImage className="text-gray-400 text-4xl" />
+        ) : (!productData?.products || productData?.products?.length === 0) ? (
+          <div className="flex-1 flex items-center justify-center p-8">
+            <div className="text-center">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-xl bg-gray-100 flex items-center justify-center">
+                <FaRegImage className="text-gray-400 text-2xl" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-800 mb-2">No products found</h3>
-              <p className="text-gray-500 mb-6 max-w-sm mx-auto">
+              <h3 className="text-sm font-semibold text-gray-700 mb-1">No products</h3>
+              <p className="text-xs text-gray-400 mb-4 max-w-[200px]">
                 {searchQuery || categoryFilter !== 'all' || subcategoryFilter !== 'all'
-                  ? "Try adjusting your search or filters to find what you're looking for."
-                  : "Get started by adding your first product to the catalog."}
+                  ? "No results found"
+                  : "Add your first product"}
               </p>
-              <div className="flex gap-3 justify-center">
+              <div className="flex gap-2 justify-center">
                 {(searchQuery || categoryFilter !== 'all') && (
                   <Button
                     variant="outlined"
-                    startIcon={<FaUndo />}
+                    size="small"
                     onClick={() => { setSearchQuery(''); setCategoryFilter('all'); setSubcategoryFilter('all'); getProducts(0, 10); }}
-                    sx={{ borderRadius: '10px', textTransform: 'none' }}
+                    className="!text-xs !py-1"
                   >
-                    Clear Filters
+                    Clear
                   </Button>
                 )}
                 <Button
                   variant="contained"
+                  size="small"
                   startIcon={<FaPlus />}
                   onClick={() => context.setIsOpenFullScreenPanel({ open: true, model: 'Add Product' })}
-                  sx={{ 
-                    borderRadius: '10px', 
-                    textTransform: 'none',
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  }}
+                  className="!text-xs !py-1 !bg-gradient-to-r !from-blue-600 !to-indigo-600"
                 >
-                  Add Product
+                  Add
                 </Button>
               </div>
             </div>
           </div>
         ) : viewMode === 'grid' ? (
-          <div className="p-2 md:p-3">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 md:gap-3">
+          <div className="p-2 flex-1 overflow-auto">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
               {productData?.products?.map((product, index) => {
-                const stockStatus = getStockStatus(product?.countInStock);
+                const stockCount = getProductStock(product);
+                const stockStatus = getStockStatus(stockCount);
                 return (
                   <div 
                     key={product._id || index} 
-                    className="group bg-white rounded-lg border border-gray-100 overflow-hidden hover:shadow-md hover:border-gray-200 transition-all duration-200"
+                    className="group bg-white rounded-lg border border-gray-100 overflow-hidden hover:shadow-md hover:border-gray-200 transition-all"
                   >
-                    <div className="relative aspect-[4/3] overflow-hidden bg-gray-50">
+                    <div className="relative aspect-square overflow-hidden bg-gray-50">
                       <input
                         type="checkbox"
                         checked={product.checked === true}
                         onChange={(e) => handleCheckboxChange(e, product._id)}
-                        className="absolute top-2 left-2 w-4 h-4 rounded border-gray-300 z-10 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        className="absolute top-1.5 left-1.5 w-3.5 h-3.5 rounded border-gray-300 z-10 opacity-0 group-hover:opacity-100 cursor-pointer"
                         style={{ opacity: product.checked ? 1 : undefined }}
                       />
                       <LazyLoadImage
                         alt={product?.name}
                         effect="blur"
                         src={product?.images[0]}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                       />
-                      <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200">
-                        <Tooltip title="Quick View">
-                          <IconButton 
-                            size="small" 
-                            onClick={() => openProductDetail(product)}
-                            sx={{ 
-                              bgcolor: 'white', 
-                              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                              width: 28,
-                              height: 28,
-                              '&:hover': { bgcolor: 'white' }
-                            }}
-                          >
-                            <FaEye className="text-gray-600 text-xs" />
-                          </IconButton>
-                        </Tooltip>
-                      </div>
-                      <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-all duration-200">
-                        <div className="flex gap-1">
-                          <Tooltip title="Edit">
-                            <IconButton 
-                              size="small"
-                              onClick={() => context.setIsOpenFullScreenPanel({
-                                open: true,
-                                model: 'Edit Product',
-                                id: product?._id
-                              })}
-                              sx={{ 
-                                bgcolor: 'white', 
-                                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                                width: 28,
-                                height: 28,
-                                '&:hover': { bgcolor: 'white' }
-                              }}
-                            >
-                              <FaEdit className="text-primary text-xs" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Delete">
-                            <IconButton 
-                              size="small"
-                              onClick={() => deleteProduct(product._id)}
-                              sx={{ 
-                                bgcolor: 'white', 
-                                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                                width: 28,
-                                height: 28,
-                                '&:hover': { bgcolor: '#fef2f2' }
-                              }}
-                            >
-                              <FaTrash className="text-red-500 text-xs" />
-                            </IconButton>
-                          </Tooltip>
+                      <div className="absolute top-1.5 left-1.5 flex flex-col gap-0.5">
+                        <div className={`text-[8px] px-1.5 py-0.5 rounded font-medium text-white ${product?.hasVariants ? 'bg-purple-500' : 'bg-blue-500'}`}>
+                          {product?.hasVariants ? 'Variant' : 'Simple'}
                         </div>
+                        {product?.hasVariants && product?.variantCount && (
+                          <div className="bg-indigo-500 text-white text-[8px] px-1.5 py-0.5 rounded font-medium">
+                            {product.variantCount} options
+                          </div>
+                        )}
+                        {!product?.hasVariants && product?.discount > 0 && (
+                          <div className="bg-rose-500 text-white text-[8px] px-1.5 py-0.5 rounded font-medium">
+                            -{product?.discount}%
+                          </div>
+                        )}
+                      </div>
+                      <div className="absolute top-1.5 right-1.5 flex flex-col gap-1 opacity-0 group-hover:opacity-100">
+                        <button
+                          onClick={() => openProductDetail(product)}
+                          className="w-6 h-6 rounded bg-white shadow flex items-center justify-center hover:bg-gray-50"
+                        >
+                          <FaEye className="text-gray-500 text-[10px]" />
+                        </button>
+                      </div>
+                      <div className="absolute bottom-1.5 left-1.5 right-1.5 flex justify-center gap-1 opacity-0 group-hover:opacity-100">
+                        <button
+                          onClick={() => context.setIsOpenFullScreenPanel({ open: true, model: 'Edit Product', id: product?._id })}
+                          className="w-6 h-6 rounded bg-white shadow flex items-center justify-center hover:bg-blue-50"
+                        >
+                          <FaEdit className="text-primary text-[10px]" />
+                        </button>
+                        <button
+                          onClick={() => deleteProduct(product._id)}
+                          className="w-6 h-6 rounded bg-white shadow flex items-center justify-center hover:bg-red-50"
+                        >
+                          <FaTrash className="text-red-500 text-[10px]" />
+                        </button>
                       </div>
                     </div>
                     
-                    <div className="p-2">
-                      <Link to={`/product/${product?._id}`} className="text-xs font-semibold text-gray-900 line-clamp-2 hover:text-primary transition-colors">
+                    <div className="p-1.5">
+                      <Link to={`/product/${product?._id}`} className="text-[11px] font-medium text-gray-800 line-clamp-2 hover:text-primary">
                         {product?.name}
                       </Link>
                       
                       <div className="flex items-center gap-1 mt-1">
-                        <span className="text-[10px] text-gray-400 line-through">{formatPrice(product?.price)}</span>
-                        <span className="text-sm font-bold text-gray-900">{formatPrice(product?.oldPrice)}</span>
+                        {product?.hasVariants ? (
+                          <span className="text-xs font-semibold text-purple-600">
+                            {getProductPrice(product)}
+                          </span>
+                        ) : product?.oldPrice > 0 && product?.oldPrice > product?.price ? (
+                          <>
+                            <span className="text-[10px] text-gray-400 line-through">{formatPrice(product?.price)}</span>
+                            <span className="text-xs font-bold text-red-600">{formatPrice(product?.oldPrice)}</span>
+                          </>
+                        ) : (
+                          <span className="text-xs font-semibold text-gray-900">{formatPrice(product?.price)}</span>
+                        )}
                       </div>
                       
-                      <div className="flex items-center justify-between mt-2">
-                        <span className="text-[10px] text-gray-500">{product?.sale} sales</span>
-                        <Chip 
-                          label={stockStatus?.label}
-                          size="small"
-                          sx={{ 
-                            bgcolor: stockStatus?.bg, 
-                            color: stockStatus?.color,
-                            fontWeight: 600,
-                            fontSize: '0.55rem',
-                            height: 18,
-                            borderRadius: '4px',
-                            paddingX: 1
-                          }}
-                        />
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-[9px] text-gray-400">{product?.sale || 0} sold</span>
+                        <span 
+                          className="text-[9px] font-medium px-1.5 py-0.5 rounded"
+                          style={{ backgroundColor: stockStatus?.bg, color: stockStatus?.color }}
+                        >
+                          {stockStatus?.label}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -622,103 +655,84 @@ export const Products = () => {
               })}
             </div>
           </div>
-        ) : (
-          <div className="p-2 md:p-3">
-            <div className="grid grid-cols-1 gap-2">
+) : (
+          <div className="p-2 flex-1 overflow-auto">
+            <div className="space-y-1">
               {productData?.products?.map((product, index) => {
-                const stockStatus = getStockStatus(product?.countInStock);
+                const stockCount = getProductStock(product);
+                const stockStatus = getStockStatus(stockCount);
                 return (
                   <div 
                     key={product._id || index} 
-                    className="group bg-white rounded-lg border border-gray-100 p-3 hover:shadow-md hover:border-gray-200 transition-all duration-200"
+                    className="flex items-center gap-2 p-2 bg-white rounded-lg border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all"
                   >
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={product.checked === true}
-                        onChange={(e) => handleCheckboxChange(e, product._id)}
-                        className="w-4 h-4 rounded border-gray-300"
+                    <input
+                      type="checkbox"
+                      checked={product.checked === true}
+                      onChange={(e) => handleCheckboxChange(e, product._id)}
+                      className="w-3.5 h-3.5 rounded border-gray-300"
+                    />
+                    <div 
+                      className="w-10 h-10 rounded overflow-hidden flex-shrink-0 cursor-pointer"
+                      onClick={() => { setPhotos([{ src: product?.images[0] }]); setOpen(true); }}
+                    >
+                      <LazyLoadImage
+                        alt={product?.name}
+                        effect="blur"
+                        src={product?.images[0]}
+                        className="w-full h-full object-cover"
                       />
-                      <div 
-                        className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 cursor-pointer"
-                        onClick={() => { setPhotos([{ src: product?.images[0] }]); setOpen(true); }}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <Link to={`/product/${product?._id}`} className="text-xs font-medium text-gray-800 line-clamp-1 hover:text-primary">
+                        {product?.name}
+                      </Link>
+                      <p className="text-[10px] text-gray-500">{product?.brand || product?.catName}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {product?.hasVariants ? (
+                        <span className="text-xs font-semibold text-purple-600">
+                          {getProductPrice(product)}
+                        </span>
+                      ) : product?.oldPrice > 0 && product?.oldPrice > product?.price ? (
+                        <>
+                          <span className="text-[10px] text-gray-400 line-through">{formatPrice(product?.price)}</span>
+                          <span className="text-xs font-bold text-red-600">{formatPrice(product?.oldPrice)}</span>
+                        </>
+                      ) : (
+                        <span className="text-xs font-semibold text-gray-900">{formatPrice(product?.price)}</span>
+                      )}
+                    </div>
+                    <span 
+                      className={`text-[9px] font-medium px-1.5 py-0.5 rounded whitespace-nowrap ${product?.hasVariants ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}
+                    >
+                      {product?.hasVariants ? 'Variant' : 'Simple'}
+                    </span>
+                    <span 
+                      className="text-[9px] font-medium px-1.5 py-0.5 rounded whitespace-nowrap"
+                      style={{ backgroundColor: stockStatus?.bg, color: stockStatus?.color }}
+                    >
+                      {stockStatus?.label}
+                    </span>
+                    <div className="flex items-center gap-0.5">
+                      <button
+                        onClick={() => openProductDetail(product)}
+                        className="w-6 h-6 rounded hover:bg-gray-100 flex items-center justify-center"
                       >
-                        <LazyLoadImage
-                          alt={product?.name}
-                          effect="blur"
-                          src={product?.images[0]}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between">
-                          <div className="min-w-0 flex-1">
-                            <Link to={`/product/${product?._id}`} className="text-sm font-semibold text-gray-900 line-clamp-1 hover:text-primary transition-colors">
-                              {product?.name}
-                            </Link>
-                            <p className="text-xs text-gray-500 mt-0.5">{product?.brand}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Chip 
-                                label={product?.catName}
-                                size="small"
-                                variant="outlined"
-                                sx={{ borderRadius: '4px', fontSize: '0.65rem', height: 18 }}
-                              />
-                            </div>
-                          </div>
-                          <div className="flex flex-col items-end gap-2">
-                            <div className="flex items-center gap-1">
-                              <span className="text-xs text-gray-400 line-through">{formatPrice(product?.price)}</span>
-                              <span className="text-base font-bold text-gray-900">{formatPrice(product?.oldPrice)}</span>
-                            </div>
-                            <Chip 
-                              label={`${stockStatus?.label} (${product?.countInStock})`}
-                              size="small"
-                              sx={{ 
-                                bgcolor: stockStatus?.bg, 
-                                color: stockStatus?.color,
-                                fontWeight: 600,
-                                fontSize: '0.65rem',
-                                height: 20,
-                                borderRadius: '4px'
-                              }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Tooltip title="Edit">
-                          <IconButton 
-                            size="small"
-                            onClick={() => context.setIsOpenFullScreenPanel({
-                              open: true,
-                              model: 'Edit Product',
-                              id: product?._id
-                            })}
-                            className="hover:bg-primary/10"
-                          >
-                            <FaEdit className="text-primary text-xs" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="View">
-                          <IconButton 
-                            size="small"
-                            onClick={() => openProductDetail(product)}
-                            className="hover:bg-gray-100"
-                          >
-                            <FaEye className="text-gray-500 text-xs" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Delete">
-                          <IconButton 
-                            size="small"
-                            onClick={() => deleteProduct(product._id)}
-                            className="hover:bg-red-50"
-                          >
-                            <FaTrash className="text-red-500 text-xs" />
-                          </IconButton>
-                        </Tooltip>
-                      </div>
+                        <FaEye className="text-gray-400 text-[10px]" />
+                      </button>
+                      <button
+                        onClick={() => context.setIsOpenFullScreenPanel({ open: true, model: 'Edit Product', id: product?._id })}
+                        className="w-6 h-6 rounded hover:bg-blue-50 flex items-center justify-center"
+                      >
+                        <FaEdit className="text-primary text-[10px]" />
+                      </button>
+                      <button
+                        onClick={() => deleteProduct(product._id)}
+                        className="w-6 h-6 rounded hover:bg-red-50 flex items-center justify-center"
+                      >
+                        <FaTrash className="text-red-400 text-[10px]" />
+                      </button>
                     </div>
                   </div>
                 );
@@ -728,27 +742,29 @@ export const Products = () => {
         )}
 
         {productData?.totalPages > 1 && (
-          <div className="flex items-center justify-between p-4 border-t border-gray-100">
+          <div className="flex items-center justify-between px-3 py-2 border-t border-gray-100 flex-shrink-0">
             <select
               value={rowsPerPage}
               onChange={handleChangeRowsPerPage}
-              className="px-4 py-2 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+              className="px-2 py-1 border border-gray-200 rounded text-xs bg-white"
             >
-              <option value={12}>12 per page</option>
-              <option value={24}>24 per page</option>
-              <option value={48}>48 per page</option>
-              <option value={96}>96 per page</option>
+              <option value={12}>12/page</option>
+              <option value={24}>24/page</option>
+              <option value={48}>48/page</option>
             </select>
             <MuiPagination
               count={productData?.totalPages}
               page={page + 1}
               onChange={handleChangePage}
-              shape="rounded"
+              size="small"
               sx={{
                 '& .MuiPaginationItem-root': {
-                  borderRadius: '8px',
+                  borderRadius: '4px',
+                  fontSize: '0.75rem',
+                  minWidth: 24,
+                  height: 24,
                   '&.Mui-selected': {
-                    bgcolor: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    bgcolor: 'primary.main',
                     color: 'white',
                   }
                 }
@@ -761,49 +777,48 @@ export const Products = () => {
       <Dialog 
         open={openDetailModal} 
         onClose={() => setOpenDetailModal(false)} 
-        fullScreen 
+        maxWidth="md"
+        fullWidth
         TransitionComponent={Transition}
       >
-        <div className="h-full flex flex-col bg-gray-50">
-          <div className="bg-white px-6 py-4 shadow-sm flex items-center justify-between">
+        <div className="bg-gray-50">
+          <div className="bg-white px-4 py-3 border-b flex items-center justify-between">
             <button 
               onClick={() => setOpenDetailModal(false)} 
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+              className="flex items-center gap-2 text-gray-500 hover:text-gray-700 text-xs"
             >
               <FaWindowClose /> 
-              <span className="font-medium">Back to Products</span>
+              <span>Close</span>
             </button>
-            <h3 className="font-bold text-gray-900 text-lg">Product Details</h3>
-            <div className="flex gap-3">
-              <Button
-                size="small"
-                variant="outlined"
-                startIcon={<FaEdit />}
-                onClick={() => {
-                  setOpenDetailModal(false);
-                  context.setIsOpenFullScreenPanel({
-                    open: true,
-                    model: 'Edit Product',
-                    id: selectedProduct?._id
-                  });
-                }}
-                sx={{ borderRadius: '8px', textTransform: 'none' }}
-              >
-                Edit Product
-              </Button>
-            </div>
+            <h3 className="font-semibold text-gray-900 text-sm">Product Details</h3>
+            <Button
+              size="small"
+              variant="contained"
+              startIcon={<FaEdit />}
+              onClick={() => {
+                setOpenDetailModal(false);
+                context.setIsOpenFullScreenPanel({
+                  open: true,
+                  model: 'Edit Product',
+                  id: selectedProduct?._id
+                });
+              }}
+              className="!text-xs !py-1"
+            >
+              Edit
+            </Button>
           </div>
 
           {selectedProduct && (
-            <div className="flex-1 overflow-y-auto p-6">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
-                <div className="lg:col-span-2">
-                  <div className="bg-white rounded-2xl p-6 shadow-sm">
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="p-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <div className="bg-white rounded-xl p-3 shadow-sm">
+                    <div className="grid grid-cols-3 gap-2">
                       {selectedProduct?.images?.slice(0, 6).map((img, idx) => (
                         <div 
                           key={idx}
-                          className="aspect-square rounded-xl overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+                          className="aspect-square rounded-lg overflow-hidden cursor-pointer hover:opacity-90"
                           onClick={() => { setPhotos(selectedProduct?.images?.map(i => ({ src: i }))); setOpen(true); }}
                         >
                           <LazyLoadImage
@@ -818,69 +833,54 @@ export const Products = () => {
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <div className="bg-white rounded-2xl p-6 shadow-sm">
-                    <h3 className="text-xl font-bold text-gray-900">{selectedProduct?.name}</h3>
-                    <p className="text-gray-500 mt-2">{selectedProduct?.brand}</p>
-                    <div className="flex items-center gap-3 mt-4">
+                <div className="space-y-3">
+                  <div className="bg-white rounded-xl p-3 shadow-sm">
+                    <h3 className="text-sm font-bold text-gray-900">{selectedProduct?.name}</h3>
+                    <p className="text-xs text-gray-500 mt-1">{selectedProduct?.brand}</p>
+                    <div className="flex items-center gap-2 mt-2">
                       <Rating name="rating" size="small" defaultValue={selectedProduct?.rating} readOnly />
-                      <span className="text-sm text-gray-500">({selectedProduct?.rating})</span>
+                      <span className="text-xs text-gray-400">({selectedProduct?.rating})</span>
                     </div>
                   </div>
 
-                  <div className="bg-white rounded-2xl p-6 shadow-sm">
-                    <div className="flex items-center gap-4 mb-4">
-                      <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-green-50 to-green-100 flex items-center justify-center">
-                        <FaBox className="text-green-600 text-xl" />
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Price</p>
-                        <p className="text-3xl font-bold text-gray-900">{formatPrice(selectedProduct?.oldPrice)}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 text-sm">
-                      <span className="text-gray-500 line-through">MRP: {formatPrice(selectedProduct?.price)}</span>
-                      {selectedProduct?.price > selectedProduct?.oldPrice && (
-                        <span className="text-green-600 font-semibold bg-green-50 px-2 py-1 rounded-lg">
-                          -{Math.round((1 - selectedProduct?.oldPrice/selectedProduct?.price) * 100)}% OFF
-                        </span>
-                      )}
-                    </div>
+                  <div className="bg-white rounded-xl p-3 shadow-sm">
+                    <p className="text-xs text-gray-500">Price</p>
+                    <p className="text-xl font-bold text-gray-900">{formatPrice(selectedProduct?.oldPrice)}</p>
+                    {selectedProduct?.price > selectedProduct?.oldPrice && (
+                      <span className="text-xs text-green-600 font-medium">
+                        {Math.round((1 - selectedProduct?.oldPrice/selectedProduct?.price) * 100)}% OFF
+                      </span>
+                    )}
                   </div>
 
-                  <div className="bg-white rounded-2xl p-6 shadow-sm">
-                    <div className="flex items-center gap-4 mb-4">
-                      <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center">
-                        <FaTruck className="text-blue-600 text-xl" />
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Stock</p>
-                        <p className="text-2xl font-bold text-gray-900">{selectedProduct?.countInStock} units</p>
-                      </div>
-                    </div>
-                    <p className="text-sm text-gray-500">{selectedProduct?.sale} total sales</p>
+                  <div className="bg-white rounded-xl p-3 shadow-sm">
+                    <p className="text-xs text-gray-500">Stock</p>
+                    <p className="text-lg font-bold text-gray-900">{selectedProduct?.countInStock} units</p>
+                    <p className="text-xs text-gray-400">{selectedProduct?.sale || 0} sales</p>
                   </div>
 
-                  <div className="bg-white rounded-2xl p-6 shadow-sm">
-                    <p className="text-sm font-medium text-gray-500 mb-3">Category</p>
-                    <div className="flex flex-wrap gap-2">
+                  <div className="bg-white rounded-xl p-3 shadow-sm">
+                    <p className="text-xs text-gray-500 mb-2">Category</p>
+                    <div className="flex flex-wrap gap-1">
                       <Chip 
                         label={selectedProduct?.catName} 
-                        sx={{ borderRadius: '8px', bgcolor: '#f3f4f6' }}
+                        size="small"
+                        className="!text-xs"
                       />
                       {selectedProduct?.subCat && (
                         <Chip 
                           label={selectedProduct?.subCat} 
+                          size="small"
                           variant="outlined"
-                          sx={{ borderRadius: '8px' }}
+                          className="!text-xs"
                         />
                       )}
                     </div>
                   </div>
 
-                  <div className="bg-white rounded-2xl p-6 shadow-sm">
-                    <p className="text-sm font-medium text-gray-500 mb-3">Description</p>
-                    <p className="text-sm text-gray-700 leading-relaxed">{selectedProduct?.description}</p>
+                  <div className="bg-white rounded-xl p-3 shadow-sm">
+                    <p className="text-xs text-gray-500 mb-2">Description</p>
+                    <p className="text-xs text-gray-700 line-clamp-3">{selectedProduct?.description}</p>
                   </div>
                 </div>
               </div>
@@ -894,30 +894,30 @@ export const Products = () => {
         open={openFilterDrawer}
         onClose={() => setOpenFilterDrawer(false)}
         PaperProps={{
-          className: 'rounded-t-2xl',
-          style: { maxHeight: '85vh' }
+          className: 'rounded-t-xl',
+          style: { maxHeight: '70vh' }
         }}
       >
-        <div className="p-6 overflow-y-auto" style={{ maxHeight: '85vh' }}>
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-gray-900">Filter Products</h3>
+        <div className="p-4 overflow-y-auto" style={{ maxHeight: '70vh' }}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-bold text-gray-900">Filter</h3>
             <button 
               onClick={() => setOpenFilterDrawer(false)} 
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+              className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200"
             >
-              <FaWindowClose />
+              <FaWindowClose className="text-xs" />
             </button>
           </div>
 
-          <div className="mb-6">
-            <p className="text-sm font-semibold text-gray-600 mb-3">Category</p>
-            <div className="space-y-2">
+          <div className="mb-4">
+            <p className="text-xs font-medium text-gray-500 mb-2">Category</p>
+            <div className="space-y-1 max-h-[40vh] overflow-y-auto">
               <button
                 onClick={() => { setTempCategoryFilter('all'); setTempSubcategoryFilter('all'); }}
-                className={`w-full p-4 rounded-xl font-medium text-left transition-all ${
+                className={`w-full p-2 rounded-lg text-left text-xs transition-all ${
                   tempCategoryFilter === 'all' 
-                    ? 'bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg shadow-primary/25' 
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    ? 'bg-primary text-white' 
+                    : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
                 }`}
               >
                 All Categories
@@ -927,10 +927,10 @@ export const Products = () => {
                 <div key={category._id}>
                   <button
                     onClick={() => handleCategoryExpand(category._id)}
-                    className={`w-full p-4 rounded-xl font-medium text-left flex items-center justify-between transition-all ${
+                    className={`w-full p-2 rounded-lg text-left text-xs flex items-center justify-between transition-all ${
                       tempCategoryFilter === category._id 
-                        ? 'bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg shadow-primary/25' 
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        ? 'bg-primary text-white' 
+                        : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
                     }`}
                   >
                     <span 
@@ -940,30 +940,30 @@ export const Products = () => {
                       {category.name}
                     </span>
                     {category?.children?.length > 0 && (
-                      <FaChevronDown className={`transition-transform ${expandedCategory === category._id ? 'rotate-180' : ''}`} />
+                      <FaChevronDown className={`text-[10px] transition-transform ${expandedCategory === category._id ? 'rotate-180' : ''}`} />
                     )}
                   </button>
                   
                   {expandedCategory === category._id && category?.children?.length > 0 && (
-                    <div className="mt-2 ml-4 space-y-2">
+                    <div className="mt-1 ml-3 space-y-1">
                       <button
                         onClick={() => setTempSubcategoryFilter('all')}
-                        className={`w-full p-3 rounded-lg font-medium text-left transition-all ${
+                        className={`w-full p-1.5 rounded text-left text-xs transition-all ${
                           tempSubcategoryFilter === 'all' 
-                            ? 'bg-primary/20 text-primary border-2 border-primary' 
-                            : 'bg-gray-50 text-gray-600 border-2 border-transparent hover:border-gray-200'
+                            ? 'bg-primary/20 text-primary border border-primary' 
+                            : 'bg-white text-gray-500 border border-transparent'
                         }`}
                       >
-                        All Subcategories
+                        All
                       </button>
                       {category.children.map((sub) => (
                         <button
                           key={sub._id}
                           onClick={() => setTempSubcategoryFilter(sub._id)}
-                          className={`w-full p-3 rounded-lg font-medium text-left transition-all ${
+                          className={`w-full p-1.5 rounded text-left text-xs transition-all ${
                             tempSubcategoryFilter === sub._id 
-                              ? 'bg-primary/20 text-primary border-2 border-primary' 
-                              : 'bg-gray-50 text-gray-600 border-2 border-transparent hover:border-gray-200'
+                              ? 'bg-primary/20 text-primary border border-primary' 
+                              : 'bg-white text-gray-500 border border-transparent'
                           }`}
                         >
                           {sub.name}
@@ -976,35 +976,36 @@ export const Products = () => {
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex gap-2">
             <button
               onClick={resetFilter}
-              className="flex-1 py-4 bg-gray-100 rounded-xl font-medium text-gray-700 hover:bg-gray-200 transition-colors"
+              className="flex-1 py-2 bg-gray-100 rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-200"
             >
               Reset
             </button>
             <button
               onClick={applyFilter}
-              className="flex-1 py-4 bg-gradient-to-r from-primary to-primary/80 text-white rounded-xl font-medium shadow-lg shadow-primary/25 hover:shadow-xl transition-all"
+              className="flex-1 py-2 bg-primary text-white rounded-lg text-xs font-medium hover:bg-primary/90"
             >
-              Apply Filter
+              Apply
             </button>
           </div>
         </div>
       </Drawer>
 
-      <Dialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle className="text-center font-bold">Confirm Delete</DialogTitle>
+      <Dialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)} maxWidth="xs" fullWidth>
+        <DialogTitle className="text-sm font-bold text-center">Delete Product?</DialogTitle>
         <DialogContent>
-          <p className="text-center text-gray-600 py-4">
-            Are you sure you want to delete this product? This action cannot be undone.
+          <p className="text-xs text-gray-500 text-center py-2">
+            This action cannot be undone.
           </p>
         </DialogContent>
-        <DialogActions className="p-4 gap-3">
+        <DialogActions className="p-2 gap-2">
           <Button 
             onClick={() => setOpenDeleteDialog(false)} 
             variant="outlined"
-            sx={{ borderRadius: '10px', textTransform: 'none' }}
+            size="small"
+            className="!text-xs"
           >
             Cancel
           </Button>
@@ -1012,7 +1013,8 @@ export const Products = () => {
             onClick={handleDeleteProduct} 
             variant="contained" 
             color="error"
-            sx={{ borderRadius: '10px', textTransform: 'none' }}
+            size="small"
+            className="!text-xs"
           >
             Delete
           </Button>

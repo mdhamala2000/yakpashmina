@@ -30,17 +30,6 @@ const gatewayConfig = {
     docs: "#",
     envKey: "BANK_NAME"
   },
-  airwallex: {
-    name: "Airwallex",
-    icon: "🌐",
-    color: "from-cyan-500 to-cyan-600",
-    bg: "bg-cyan-50",
-    text: "text-cyan-600",
-    description: "Global multi-currency payments.",
-    features: ["Multi-Currency", "Local Payments"],
-    docs: "https://dashboard.airwallex.com",
-    envKey: "AIRWALLEX_API_KEY"
-  },
   paypal: {
     name: "PayPal",
     icon: "🅿️",
@@ -51,6 +40,17 @@ const gatewayConfig = {
     features: ["PayPal Balance", "Express Checkout"],
     docs: "https://developer.paypal.com",
     envKey: "PAYPAL_MODE"
+  },
+  airwallex: {
+    name: "Airwallex",
+    icon: "🌐",
+    color: "from-teal-500 to-teal-600",
+    bg: "bg-teal-50",
+    text: "text-teal-600",
+    description: "Global payment gateway accepting cards and local methods.",
+    features: ["Credit & Debit Cards", "Local Payment Methods", "Hosted Payment Page"],
+    docs: "https://www.airwallex.com/docs",
+    envKey: "AIRWALLEX_API_KEY"
   }
 };
 

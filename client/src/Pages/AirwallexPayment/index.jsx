@@ -1,149 +1,136 @@
-import React, { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { init } from '@airwallex/components-sdk';
-import { MyContext } from "../../App";
-import { useContext } from "react";
-import { FaSpinner, FaCheckCircle, FaTimesCircle } from "react-icons/fa";
-import axios from "axios";
-
-const VITE_API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+import { useEffect, useState, useContext } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { MyContext } from '../../App';
+import { postData, deleteData, fetchDataFromApi } from '../../utils/api';
+import { FaShieldAlt, FaSpinner, FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
 
 const AirwallexPayment = () => {
-  const location = useLocation();
-  const history = useNavigate();
+  const [searchParams] = useSearchParams();
   const context = useContext(MyContext);
-  
-  const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState('processing');
-  const [error, setError] = useState('');
-  
-  const params = new URLSearchParams(location.search);
-  const paymentIntentId = params.get('paymentIntentId');
-  const clientSecret = params.get('clientSecret');
-  const amount = params.get('amount');
-  const currency = params.get('currency') || 'USD';
+  const history = useNavigate();
+  const [status, setStatus] = useState('verifying');
+  const [message, setMessage] = useState('Verifying your payment...');
 
   useEffect(() => {
-    if (!paymentIntentId || !clientSecret) {
-      setError('Missing payment details');
-      setLoading(false);
-      return;
-    }
-    initAirwallex();
+    const verifyPayment = async () => {
+      try {
+        let intentId = searchParams.get('intent_id') || searchParams.get('payment_intent_id') || searchParams.get('id');
+        if (!intentId) {
+          const hash = window.location.hash;
+          if (hash) {
+            const hashParams = new URLSearchParams(hash.replace('#', '?'));
+            intentId = hashParams.get('intent_id') || hashParams.get('payment_intent_id') || hashParams.get('id');
+          }
+        }
+        if (!intentId) {
+          intentId = sessionStorage.getItem('airwallex_intent_id');
+          if (intentId) sessionStorage.removeItem('airwallex_intent_id');
+        }
+        const rawStatus = searchParams.get('status');
+
+        if (!intentId) {
+          setStatus('failed');
+          setMessage('No payment reference found.');
+          return;
+        }
+
+        const intentRes = await fetchDataFromApi(`/api/airwallex/intent/${intentId}`);
+        const intentStatus = intentRes?.data?.status || rawStatus || '';
+
+        if (intentStatus === 'SUCCEEDED' || intentStatus === 'APPROVED') {
+          const orderData = sessionStorage.getItem('airwallex_order_data');
+          if (!orderData) {
+            setStatus('failed');
+            setMessage('Session expired. Please try again.');
+            return;
+          }
+          const parsed = JSON.parse(orderData);
+          const payLoad = {
+            userId: parsed.userId,
+            products: parsed.products,
+            payment_method: 'airwallex',
+            paymentId: intentId,
+            payment_status: 'PAID',
+            delivery_address: parsed.delivery_address,
+            totalAmt: parsed.totalAmt,
+            subTotal: parsed.subTotal,
+            shippingCost: parsed.shippingCost,
+            discountCode: parsed.discountCode || null,
+            discountAmount: parsed.discountAmount || 0,
+            currency: parsed.currency || 'USD',
+            currencyRate: parsed.currencyRate || 1
+          };
+          const res = await postData('/api/order/create', payLoad);
+          if (res?.success) {
+            if (parsed.discountCode) {
+              await postData('/api/discountCode/apply', { code: parsed.discountCode });
+            }
+            await deleteData(`/api/cart/emptyCart/${parsed.userId}`);
+            context?.getCartItems();
+            localStorage.removeItem('appliedDiscount');
+            sessionStorage.removeItem('airwallex_order_data');
+            setStatus('success');
+            setMessage('Payment successful! Redirecting...');
+            setTimeout(() => history('/order/success'), 1500);
+          } else {
+            setStatus('failed');
+            setMessage(res?.message || 'Failed to create order');
+          }
+        } else if (intentStatus === 'CANCELLED' || rawStatus === 'cancelled') {
+          setStatus('failed');
+          setMessage('Payment was cancelled.');
+          sessionStorage.removeItem('airwallex_order_data');
+          setTimeout(() => history('/checkout'), 2000);
+        } else {
+          setStatus('failed');
+          setMessage('Payment verification failed. Please try again.');
+          setTimeout(() => history('/checkout'), 2000);
+        }
+      } catch (error) {
+        console.error('Airwallex verification error:', error);
+        setStatus('failed');
+        setMessage('An error occurred while verifying your payment.');
+      }
+    };
+    verifyPayment();
   }, []);
 
-  const initAirwallex = async () => {
-    try {
-      await init({
-        env: 'demo', // Use 'demo' for sandbox, 'prod' for production
-        amount: parseFloat(amount),
-        currency: currency,
-        clientSecret: clientSecret,
-        paymentIntentId: paymentIntentId,
-        countryCode: 'US',
-        merchantName: 'Mantra Handicrafts',
-        showPaymentMethods: ['card'],
-        redirect: {
-          successUrl: `${window.location.origin}/payment/success?paymentIntentId=${paymentIntentId}`,
-          failUrl: `${window.location.origin}/payment/fail?paymentIntentId=${paymentIntentId}`,
-        },
-      });
-      
-      // Check payment status after redirect
-      checkPaymentStatus();
-    } catch (err) {
-      console.error('Airwallex init error:', err);
-      setError(err.message || 'Failed to initialize payment');
-      setLoading(false);
-    }
-  };
-
-  const checkPaymentStatus = async () => {
-    try {
-      const res = await axios.get(`${VITE_API_URL}/api/payment/status/${paymentIntentId}`);
-      
-      if (res.data?.data?.status === 'succeeded' || res.data?.data?.status === 'Captured') {
-        setStatus('success');
-        // Update order status on server
-        await axios.post(`${VITE_API_URL}/api/order/update-payment-status`, {
-          paymentIntentId: paymentIntentId,
-          payment_status: 'PAID'
-        });
-      } else if (res.data?.data?.status === 'failed') {
-        setStatus('failed');
-      } else {
-        // Check again after 2 seconds
-        setTimeout(checkPaymentStatus, 2000);
-      }
-    } catch (err) {
-      console.error('Status check error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRetry = () => {
-    setLoading(true);
-    setError('');
-    initAirwallex();
-  };
-
-  const handleGoHome = () => {
-    history('/');
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <FaSpinner className="animate-spin text-4xl text-blue-600 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-800">Processing Payment...</h2>
-          <p className="text-gray-500 mt-2">Please wait while we process your payment</p>
-          <p className="text-gray-400 text-sm mt-1">{currency} {amount}</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center max-w-md mx-auto p-6">
-          <FaTimesCircle className="text-5xl text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-800">Payment Failed</h2>
-          <p className="text-gray-500 mt-2">{error}</p>
-          <div className="flex gap-3 mt-6 justify-center">
-            <button 
-              onClick={handleRetry}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              Try Again
-            </button>
-            <button 
-              onClick={handleGoHome}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-            >
-              Go Home
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="text-center max-w-md mx-auto p-6">
-        <FaCheckCircle className="text-5xl text-green-500 mx-auto mb-4" />
-        <h2 className="text-xl font-semibold text-gray-800">Payment Successful!</h2>
-        <p className="text-gray-500 mt-2">Your payment of {currency} {amount} has been processed.</p>
-        <p className="text-gray-400 text-sm mt-1">Payment ID: {paymentIntentId}</p>
-        <button 
-          onClick={handleGoHome}
-          className="mt-6 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-        >
-          Continue Shopping
-        </button>
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 max-w-md w-full text-center">
+        <div className="mb-6">
+          {status === 'verifying' && (
+            <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto">
+              <FaSpinner className="text-blue-600 text-2xl animate-spin" />
+            </div>
+          )}
+          {status === 'success' && (
+            <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto">
+              <FaCheckCircle className="text-emerald-500 text-2xl" />
+            </div>
+          )}
+          {status === 'failed' && (
+            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto">
+              <FaTimesCircle className="text-red-500 text-2xl" />
+            </div>
+          )}
+        </div>
+        <h2 className="text-lg font-semibold text-gray-900 mb-2">
+          {status === 'verifying' ? 'Verifying Payment' : status === 'success' ? 'Payment Successful!' : 'Payment Failed'}
+        </h2>
+        <p className="text-sm text-gray-500 mb-6">{message}</p>
+        <div className="flex items-center justify-center gap-2 text-[11px] text-gray-400">
+          <FaShieldAlt className="text-emerald-500" />
+          <span>Secured by Airwallex</span>
+        </div>
+        {(status === 'failed' || status === 'success') && (
+          <button
+            onClick={() => history(status === 'success' ? '/order/success' : '/checkout')}
+            className="mt-6 w-full py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-medium rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all"
+          >
+            {status === 'success' ? 'View Order' : 'Back to Checkout'}
+          </button>
+        )}
       </div>
     </div>
   );

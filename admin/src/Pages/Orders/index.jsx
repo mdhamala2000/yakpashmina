@@ -286,6 +286,7 @@ export const Orders = () => {
                           <option value="pending">Pending</option>
                           <option value="confirm">Confirm</option>
                           <option value="delivered">Delivered</option>
+                          <option value="cancelled">Cancelled</option>
                         </select>
                       </td>
                       <td className="px-4 py-3">
@@ -419,6 +420,7 @@ export const Orders = () => {
                         <option value="pending">Pending</option>
                         <option value="confirm">Confirm</option>
                         <option value="delivered">Delivered</option>
+                        <option value="cancelled">Cancelled</option>
                       </select>
                     </div>
                     
@@ -529,6 +531,7 @@ export const Orders = () => {
                     <option value="pending">Pending</option>
                     <option value="confirm">Confirm</option>
                     <option value="delivered">Delivered</option>
+                    <option value="cancelled">Cancelled</option>
                   </select>
                 </div>
               </div>

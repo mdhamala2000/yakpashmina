@@ -1,36 +1,36 @@
 import React, { useContext, useEffect, useState } from "react";
 import HomeSlider from "../../components/HomeSlider";
-import ModernHomeCat from "../../components/ModernHomeCat";
-import Tabs from "@mui/material/Tabs";
-import Tab from "@mui/material/Tab";
-import ProductsSlider from "../../components/ProductsSlider";
-import HomeProductItem from "../../components/HomeProductItem";
-import BlogItem from "../../components/BlogItem";
+import CatSubCatSlider from "../../components/CatSubCatSlider";
+import ProductItem from "../../components/ProductItem";
+import HomeProductSlider from "../../components/HomeProductSlider";
+import ReviewsSlider from "../../components/ReviewsSlider";
+import BlogSlider from "../../components/BlogSlider";
 import { fetchDataFromApi } from "../../utils/api";
 import { MyContext } from "../../App";
-import ProductLoading from "../../components/ProductLoading";
 import BannerLoading from "../../components/LoadingSkeleton/bannerLoading";
 import { Button } from "@mui/material";
-import { MdArrowRightAlt } from "react-icons/md";
+
+
 import { Link } from "react-router-dom";
 import Box from "@mui/material/Box";
-import Rating from "@mui/material/Rating";
-import Avatar from "@mui/material/Avatar";
 import Typography from "@mui/material/Typography";
-import { FaUserCircle } from "react-icons/fa";
-import Chip from "@mui/material/Chip";
+import { FaTh, FaAngleRight, FaFire, FaStar, FaClock } from "react-icons/fa";
 import SEO from "../../components/SEO";
+import Tabs from "@mui/material/Tabs";
+import Tab from "@mui/material/Tab";
 
 const Home = () => {
-  const [value, setValue] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [homeSlidesData, setHomeSlidesData] = useState([]);
-  const [popularProductsData, setPopularProductsData] = useState([]);
   const [featuredProducts, setFeaturedProducts] = useState([]);
-  const [recentlyAddedProducts, setRecentlyAddedProducts] = useState([]);
+  const [recentProducts, setRecentProducts] = useState([]);
+  const [popularProducts, setPopularProducts] = useState([]);
   const [allReviews, setAllReviews] = useState([]);
   const [blogData, setBlogData] = useState([]);
   const [catWithProducts, setCatWithProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedCat, setSelectedCat] = useState(0);
+  const [products, setProducts] = useState([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
 
   const context = useContext(MyContext);
 
@@ -39,18 +39,18 @@ const Home = () => {
     
     const fetchAllData = async () => {
       try {
-        const [slidesRes, featuredRes, blogRes, recentRes, reviewsRes] = await Promise.all([
+        const [slidesRes, featuredRes, blogRes, reviewsRes, recentRes] = await Promise.all([
           fetchDataFromApi("/api/homeSlides"),
           fetchDataFromApi("/api/product/getAllFeaturedProducts"),
           fetchDataFromApi("/api/blog"),
-          fetchDataFromApi("/api/product/getAllProducts?page=1&limit=12&sort=newest"),
-          fetchDataFromApi("/api/user/getAllReviews")
+          fetchDataFromApi("/api/user/getAllReviews"),
+          fetchDataFromApi("/api/product/getAllProducts?page=1&limit=12&sort=newest")
         ]);
 
         setHomeSlidesData(slidesRes?.data || []);
         setFeaturedProducts(featuredRes?.products || []);
         setBlogData(blogRes?.blogs || []);
-        setRecentlyAddedProducts(recentRes?.products || []);
+        setRecentProducts(recentRes?.products || []);
         if (reviewsRes?.success) {
           setAllReviews(reviewsRes?.reviews || []);
         }
@@ -73,15 +73,11 @@ const Home = () => {
       setCatWithProducts(validCats);
 
       if (validCats.length > 0) {
-        setValue(0);
-        try {
-          const res = await fetchDataFromApi(`/api/product/getAllProductsByCatId/${validCats[0]._id}?page=1&limit=6`);
-          if (res?.error === false) {
-            setPopularProductsData(res?.products || []);
-          }
-        } catch (e) {
-          console.error("Error fetching products:", e);
-        }
+        setSelectedCat(0);
+        await fetchProductsByCat(validCats[0]._id);
+        
+        const popRes = await fetchDataFromApi(`/api/product/getAllProducts?page=1&limit=12&sort=best_selling`);
+        setPopularProducts(popRes?.products || []);
       }
       setLoading(false);
     };
@@ -89,17 +85,97 @@ const Home = () => {
     processCategories();
   }, [context?.catData]);
 
-  const handleChange = (event, newValue) => {
-    setValue(newValue);
+  const fetchProductsByCat = async (catId) => {
+    setLoadingProducts(true);
+    try {
+      const res = await fetchDataFromApi(`/api/product/getAllProductsByCatId/${catId}?page=1&limit=12`);
+      if (res?.error === false) {
+        setProducts(res?.products || []);
+      } else {
+        setProducts([]);
+      }
+    } catch (e) {
+      console.error("Error fetching products:", e);
+      setProducts([]);
+    }
+    setLoadingProducts(false);
+  }
+
+  const handleTabChange = async (event, newValue) => {
+    setSelectedCat(newValue);
+    const cat = catWithProducts[newValue];
+    if (cat) {
+      await fetchProductsByCat(cat._id);
+    }
   };
 
-  const filterByCatId = (id) => {
-    fetchDataFromApi(`/api/product/getAllProductsByCatId/${id}?page=1&limit=6`).then((res) => {
-      if (res?.error === false) {
-        setPopularProductsData(res?.products || [])
-      }
-    })
-  }
+  const handleCatChipClick = (cat) => {
+    const idx = catWithProducts.findIndex((c) => c._id === cat._id);
+    if (idx !== -1 && idx !== selectedCat) {
+      handleTabChange(null, idx);
+    }
+    document.getElementById("shop-collection-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const SectionHeader = ({ icon, title, subtitle, linkTo }) => (
+    <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-700 rounded-xl flex items-center justify-center">
+          {icon}
+        </div>
+        <div>
+          <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">{title}</h2>
+          <p className="text-xs sm:text-sm text-gray-500 mt-0.5">{subtitle}</p>
+        </div>
+      </div>
+      {linkTo && (
+        <Link to={linkTo}>
+          <Button className="!text-slate-700 !text-sm !font-medium" endIcon={<FaAngleRight />}>
+            View All
+          </Button>
+        </Link>
+      )}
+    </div>
+  );
+
+  const ProductGrid = ({ data, loading, cols = "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" }) => {
+    if (loading) {
+      return (
+        <div className={`grid ${cols} gap-3 sm:gap-4`}>
+          {[...Array(8)].map((_, i) => (
+            <div key={i} className="animate-pulse">
+              <div className="bg-gray-200 rounded-xl aspect-[4/5]"></div>
+              <div className="p-3 space-y-2">
+                <div className="bg-gray-200 h-3 w-3/4 rounded"></div>
+                <div className="bg-gray-200 h-3 w-1/2 rounded"></div>
+                <div className="bg-gray-200 h-4 w-1/3 rounded"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (data.length === 0) {
+      return (
+        <div className="text-center py-12">
+          <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <FaTh className="text-3xl text-gray-400" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-700 mb-2">No products found</h3>
+          <p className="text-sm text-gray-500">Try again later</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className={`grid ${cols} gap-3 sm:gap-4`}>
+        {data.map((item, index) => (
+          <ProductItem key={index} item={item} />
+        ))}
+      </div>
+    );
+  };
 
   return (
     <>
@@ -108,43 +184,22 @@ const Home = () => {
         description="Discover premium handwoven Pashmina shawls, scarves, and blankets from Nepal. Authentic cashmere products crafted by skilled artisans. Free worldwide shipping."
         url="/"
       />
-      <SEO 
-        type="website"
-        schema={{
-          "@context": "https://schema.org",
-          "@type": "WebSite",
-          "name": "Yak Pashmina",
-          "url": "https://yakpashamina.com",
-          "potentialAction": {
-            "@type": "SearchAction",
-            "target": "https://yakpashamina.com/search?q={search_term_string}",
-            "query-input": "required name=search_term_string"
-          }
-        }}
-      />
-      <SEO 
-        type="organization"
-        schema={{
-          "@context": "https://schema.org",
-          "@type": "Organization",
-          "name": "Yak Pashmina",
-          "url": "https://yakpashamina.com",
-          "logo": "https://yakpashamina.com/logo.jpg",
-          "contactPoint": {
-            "@type": "ContactPoint",
-            "telephone": "+977-9841321806",
-            "contactType": "customer service"
-          },
-          "sameAs": [
-            "https://wa.me/9779841321806",
-            "https://wa.me/85265492201"
-          ]
-        }}
-      />
+      
       {homeSlidesData?.length === 0 && <BannerLoading />}
       {homeSlidesData?.length !== 0 && <HomeSlider data={homeSlidesData} />}
 
-      {!loading && catWithProducts?.length !== 0 && <ModernHomeCat />}
+      {!loading && context?.catData?.length !== 0 && (
+        <section className="bg-white py-4 lg:py-6 border-b border-gray-100">
+          <div className="container">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-[18px] sm:text-[22px] lg:text-[26px] font-[700] text-gray-900">
+                Categories
+              </h2>
+            </div>
+            <CatSubCatSlider data={context?.catData || []} onCategoryClick={handleCatChipClick} />
+          </div>
+        </section>
+      )}
 
       <section className="bg-white border-y border-gray-100 py-6 sm:py-8 lg:py-10">
         <div className="container">
@@ -159,63 +214,106 @@ const Home = () => {
         </div>
       </section>
 
-      <section className="bg-white py-4 lg:py-8">
+      <section className="py-6 lg:py-10 bg-gray-50">
         <div className="container">
-          <div className="flex items-center justify-between flex-col lg:flex-row mb-4">
-            <div className="leftSec w-full lg:w-[40%]">
-              <h2 className="text-[16px] sm:text-[18px] lg:text-[20px] font-[600]">Popular Products</h2>
-              <p className="text-[12px] text-gray-500 mt-1">Explore our handpicked selection of premium items</p>
-            </div>
-            <div className="rightSec w-full lg:w-[60%]">
-              {catWithProducts?.length > 0 && (
-                <Tabs
-                  value={value}
-                  onChange={handleChange}
-                  variant="scrollable"
-                  scrollButtons="auto"
-                  aria-label="category tabs"
-                >
-                  {catWithProducts.map((cat, index) => (
-                    <Tab key={index} label={cat?.name} onClick={() => filterByCatId(cat?._id)} />
-                  ))}
-                </Tabs>
-              )}
-            </div>
-          </div>
-          <div className="min-h-[300px]">
-            {loading ? (
-              <ProductLoading />
-            ) : popularProductsData?.length === 0 ? (
-              <p className="text-center py-10 text-gray-500">No products available</p>
-            ) : (
-              <ProductsSlider items={6} data={popularProductsData} ItemComponent={HomeProductItem} />
-            )}
+          <SectionHeader 
+            icon={<FaFire className="text-white text-lg sm:text-xl" />}
+            title="Popular Products"
+            subtitle="Our best-selling handpicked items"
+            linkTo="/products"
+          />
+
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-3 sm:px-5 py-5 sm:py-6">
+            <HomeProductSlider data={popularProducts} />
           </div>
         </div>
       </section>
 
-      {featuredProducts?.length > 0 && (
-        <section className="bg-white py-4 lg:py-6">
-          <div className="container">
-            <div className="mb-4">
-              <h2 className="text-[18px] lg:text-[20px] font-[600]">Featured Products</h2>
-              <p className="text-[12px] text-gray-500 mt-1">Discover our exclusive collection of premium picks</p>
-            </div>
-            <ProductsSlider items={6} data={featuredProducts} ItemComponent={HomeProductItem} />
-          </div>
-        </section>
-      )}
-
-      <section className="py-3 lg:py-4">
+      <section id="shop-collection-section" className="py-6 lg:py-10 bg-white">
         <div className="container">
-          <Box className="bg-gradient-to-r from-gray-100 via-gray-50 to-gray-100 rounded-2xl px-5 sm:px-8 lg:px-12 py-6 lg:py-8 border border-gray-200">
+          <SectionHeader 
+            icon={<FaStar className="text-white text-lg sm:text-xl" />}
+            title="Shop Our Collection"
+            subtitle="Explore by category"
+          />
+
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="border-b border-gray-100 overflow-x-auto scrollbar-hide">
+              <Tabs
+                value={selectedCat}
+                onChange={handleTabChange}
+                variant="scrollable"
+                scrollButtons="auto"
+                aria-label="category tabs"
+                className="!px-2 sm:!px-4"
+                TabIndicatorProps={{ style: { backgroundColor: '#475569' } }}
+              >
+                {catWithProducts.map((cat, index) => (
+                  <Tab 
+                    key={index} 
+                    label={cat?.name} 
+                    className="!text-sm !font-medium !min-w-fit !px-4 !py-3"
+                    sx={{
+                      color: '#6b7280',
+                      '&.Mui-selected': { color: '#475569' }
+                    }}
+                  />
+                ))}
+              </Tabs>
+            </div>
+
+            <div className="px-3 sm:px-5 py-4 sm:py-6">
+              {loadingProducts ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+                  {[...Array(8)].map((_, i) => (
+                    <div key={i} className="animate-pulse">
+                      <div className="bg-gray-200 rounded-xl aspect-[4/5]"></div>
+                      <div className="p-3 space-y-2">
+                        <div className="bg-gray-200 h-3 w-3/4 rounded"></div>
+                        <div className="bg-gray-200 h-3 w-1/2 rounded"></div>
+                        <div className="bg-gray-200 h-4 w-1/3 rounded"></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : products.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <FaTh className="text-3xl text-gray-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-700 mb-2">No products found</h3>
+                  <p className="text-sm text-gray-500">Try again later</p>
+                </div>
+              ) : (
+                <HomeProductSlider data={products} />
+              )}
+              
+              <div className="mt-6 text-center">
+                <Link to="/products">
+                  <Button 
+                    variant="outlined" 
+                    className="!border-slate-300 !text-slate-700 hover:!border-slate-500 !px-6 !py-2 !rounded-lg !font-medium"
+                    endIcon={<FaAngleRight />}
+                  >
+                    View All Products
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-6 lg:py-8 bg-white">
+        <div className="container">
+          <Box className="bg-gradient-to-r from-gray-100 via-gray-50 to-gray-100 rounded-2xl px-5 sm:px-8 lg:px-12 py-6 lg:py-8 border border-gray-200 shadow-sm">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <Box className="flex items-center gap-4 sm:gap-5">
-                <Box className="w-12 h-12 sm:w-14 sm:h-14 bg-white rounded-2xl flex items-center justify-center shrink-0 shadow-sm">
+                <Box className="w-12 h-12 sm:w-14 sm:h-14 bg-slate-700 rounded-2xl flex items-center justify-center shrink-0 shadow-sm">
                   <span className="text-2xl sm:text-3xl">✈️</span>
                 </Box>
                 <Box>
-                  <Typography className="!text-gray-900 !font-[600] !text-[16px] sm:!text-[18px] lg:!text-[20px]">
+                  <Typography className="!text-slate-800 !font-bold !text-[16px] sm:!text-[18px] lg:!text-[20px]">
                     Free Shipping Worldwide
                   </Typography>
                   <Typography className="!text-gray-500 !text-[12px] sm:!text-[13px] lg:!text-[14px]">
@@ -234,21 +332,34 @@ const Home = () => {
         </div>
       </section>
 
-      {recentlyAddedProducts?.length > 0 && (
-        <section className="py-6 lg:py-8 bg-white">
+      <section className="py-6 lg:py-10 bg-gray-50">
+        <div className="container">
+          <SectionHeader 
+            icon={<FaClock className="text-white text-lg sm:text-xl" />}
+            title="Recently Added"
+            subtitle="Fresh arrivals in our collection"
+            linkTo="/products?sort=newest"
+          />
+
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-3 sm:px-5 py-5 sm:py-6">
+            <HomeProductSlider data={recentProducts} />
+          </div>
+        </div>
+      </section>
+
+      {featuredProducts?.length > 0 && (
+        <section className="py-6 lg:py-10 bg-white">
           <div className="container">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-[18px] sm:text-[20px] lg:text-[22px] font-[600] text-gray-800">Recently Added</h2>
-                <p className="text-[12px] sm:text-[13px] text-gray-500 mt-1">Fresh arrivals in our collection</p>
-              </div>
-              <Link to="/products">
-                <Button className="!text-gray-600 !text-sm !font-[500]" size="small">
-                  View All <MdArrowRightAlt className="!text-lg" />
-                </Button>
-              </Link>
+            <SectionHeader 
+              icon={<FaStar className="text-white text-lg sm:text-xl" />}
+              title="Featured Products"
+              subtitle="Our exclusive premium picks"
+              linkTo="/products?featured=true"
+            />
+
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
+              <ProductGrid data={featuredProducts} loading={loading} />
             </div>
-            <ProductsSlider items={6} data={recentlyAddedProducts} ItemComponent={HomeProductItem} />
           </div>
         </section>
       )}
@@ -261,57 +372,21 @@ const Home = () => {
                 <h2 className="text-[16px] sm:text-[18px] lg:text-[20px] font-[600]">Customer Reviews</h2>
                 <p className="text-[12px] sm:text-[13px] text-gray-500 mt-1">See what our customers say</p>
               </div>
-              <Link to="/all-reviews">
-                <Button className="!bg-[#2bbef9] !text-white !font-[500] !px-4 !py-1.5 !rounded-full">
-                  View All
-                </Button>
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link to="/products">
+                  <Button className="!bg-white !text-slate-700 !font-[500] !px-4 !py-1.5 !rounded-lg !text-sm !border !border-gray-300 hover:!bg-gray-50">
+                    View Products
+                  </Button>
+                </Link>
+                <Link to="/all-reviews">
+                  <Button className="!bg-slate-700 !text-white !font-[500] !px-4 !py-1.5 !rounded-lg !text-sm">
+                    View All
+                  </Button>
+                </Link>
+              </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-              {allReviews?.slice(0, 8).map((review, index) => (
-                <Box key={index} className="bg-white rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-lg transition-shadow flex flex-col">
-                  <Box className="flex items-center gap-3 mb-3">
-                    <Avatar src={review?.image || '/user.jpg'} className="!w-[40px] sm:!w-[48px] !h-[40px] sm:!h-[48px]">
-                      <FaUserCircle className="!text-[40px] sm:!text-[48px] !text-gray-400" />
-                    </Avatar>
-                    <Box>
-                      <Typography className="!font-[600] !text-[12px] sm:!text-[14px]">
-                        {review?.userName || 'Anonymous'}
-                      </Typography>
-                      <Rating value={review?.rating || 5} size="small" readOnly />
-                    </Box>
-                  </Box>
-                  <Typography className="!text-[11px] sm:!text-[13px] !text-gray-600 leading-relaxed mb-3 flex-grow line-clamp-3">
-                    {review?.review}
-                  </Typography>
-                  
-                  {review?.reviewImages?.length > 0 && (
-                    <Box className="flex gap-2 mb-3">
-                      {review.reviewImages.slice(0, 3).map((img, imgIndex) => (
-                        <Box key={imgIndex} className="w-[60px] h-[60px] sm:w-[70px] sm:h-[70px] rounded-lg overflow-hidden border border-gray-200">
-                          <img src={img} alt="Review" className="w-full h-full object-cover" />
-                        </Box>
-                      ))}
-                    </Box>
-                  )}
-                  
-                  <Box className="mt-auto flex items-center justify-between">
-                    {(review?.productId || review?.productName) && (
-                      <Chip 
-                        label={review?.productName || 'Product'} 
-                        size="small"
-                        component={Link}
-                        to={review?.productId ? `/product/${review.productId}` : '#'}
-                        clickable
-                        className="!bg-green-50 !text-green-700 !text-[10px] !font-[500]"
-                      />
-                    )}
-                    <Link to="/all-reviews" className="!text-[#2bbef9] !text-[11px] sm:!text-[12px] !font-[500] hover:!underline">
-                      Read More →
-                    </Link>
-                  </Box>
-                </Box>
-              ))}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-3 sm:px-5 py-5 sm:py-6">
+              <ReviewsSlider data={allReviews} />
             </div>
           </div>
         </section>
@@ -320,11 +395,16 @@ const Home = () => {
       {blogData?.length > 0 && (
         <section className="py-6 sm:py-8 bg-white">
           <div className="container">
-            <h2 className="text-[16px] sm:text-[18px] lg:text-[20px] font-[600] mb-4 sm:mb-5">Latest Blog</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-              {blogData?.slice(0, 4)?.map((item, index) => (
-                <BlogItem key={index} item={item} />
-              ))}
+            <div className="flex items-center justify-between mb-4 sm:mb-5">
+              <h2 className="text-[16px] sm:text-[18px] lg:text-[20px] font-[600]">Latest Blog</h2>
+              <Link to="/blog">
+                <Button className="!bg-slate-700 !text-white !font-[500] !px-4 !py-1.5 !rounded-lg !text-sm">
+                  View All
+                </Button>
+              </Link>
+            </div>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-3 sm:px-5 py-5 sm:py-6">
+              <BlogSlider data={blogData} />
             </div>
           </div>
         </section>

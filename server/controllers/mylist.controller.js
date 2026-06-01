@@ -30,13 +30,13 @@ export const addToMyListController = async (request, response) => {
 
         const myList = new MyListModel({
             productId,
-            productTitle,
-            image,
-            rating,
-            price,
-            oldPrice,
-            brand,
-            discount,
+            productTitle: productTitle || 'Unnamed Product',
+            image: image || '',
+            rating: rating || 0,
+            price: price || 0,
+            oldPrice: oldPrice || 0,
+            brand: brand || '',
+            discount: discount || 0,
             userId
         })
 

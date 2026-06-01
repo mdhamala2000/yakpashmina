@@ -150,7 +150,8 @@ const AllReviews = () => {
         formData.append('images', blob, 'review-image.jpg');
         
         // Try without auth for public uploads
-        const res = await fetch('http://localhost:8000/api/blog/uploadImages', {
+        const VITE_API_URL = import.meta.env.VITE_API_URL || '';
+    const res = await fetch(`${VITE_API_URL}/api/user/uploadReviewImages`, {
           method: 'POST',
           body: formData
         });

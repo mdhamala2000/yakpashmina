@@ -10,3 +10,19 @@
 
 .nav li .submenu li .submenu button{color: rgba(0,0,0,0.80) !important;}
 .nav li .submenu li .submenu button:hover{color: #ff5252 !important;}
+
+.nav li .group\/sub:hover > .submenu{opacity: 1 !important; visibility: visible !important;}
+.nav .more-trigger:hover .more-dropdown{opacity: 1 !important; visibility: visible !important;}
+
+.nav-link-btn{
+  font-weight: 500 !important;
+  letter-spacing: 0.03em !important;
+  color: #1a1a2e !important;
+  font-size: 14px !important;
+  text-transform: capitalize !important;
+  position: relative !important;
+  transition: color 0.25s ease !important;
+}
+.nav-link-btn:hover{
+  color: #ff5252 !important;
+}

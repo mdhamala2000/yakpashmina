@@ -51,11 +51,11 @@ const auth = async(request,response,next)=>{
             '/getAllReviewsAdmin',
             '/approveReview',
             '/deleteReview',
-            '/order-list', // admin order list
+            '/order-list',
             '/sales',
             '/count',
-            '/updateOrderStatus',
-            '/updatePaymentStatus'
+            '/order-status',
+            '/update-payment-status'
         ];
         
         const isAdminRoute = adminOnlyRoutes.some(route => request.path.includes(route));
@@ -81,5 +81,16 @@ const auth = async(request,response,next)=>{
         })
     }
 }
+
+export const requireAdmin = (request, response, next) => {
+    if (request.userRole !== 'ADMIN') {
+        return response.status(403).json({
+            message: "Admin access required",
+            error: true,
+            success: false
+        });
+    }
+    next();
+};
 
 export default auth

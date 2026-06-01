@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import auth from '../middlewares/auth.js';
 import upload from '../middlewares/multer.js';
-import {createProduct, createProductRAMS, deleteMultipleProduct, deleteProduct, deleteProductRAMS, getAllFeaturedProducts, getAllProducts, getAllProductsByCatId, getAllProductsByCatName, getAllProductsByPrice, getAllProductsByRating, getAllProductsBySubCatId, getAllProductsBySubCatName, getAllProductsByThirdLavelCatId, getProduct, getProductRams, getProductsCount, updateProduct, updateProductRam, uploadImages, getProductRamsById, createProductWEIGHT, deleteProductWEIGHT, updateProductWeight, getProductWeight, getProductWeightById, createProductSize, deleteProductSize, updateProductSize, getProductSize, getProductSizeById, uploadBannerImages, getAllProductsBanners, filters, sortBy, searchProductController, createProductColor, deleteProductColor, updateProductColor, getProductColor, getProductColorById, createProductMaterials, deleteProductMaterials, updateProductMaterials, getProductMaterials, getProductMaterialsById} from '../controllers/product.controller.js';
+import {createProduct, createProductRAMS, deleteMultipleProduct, deleteProduct, deleteProductRAMS, getAllFeaturedProducts, getAllProducts, getAllProductsByCatId, getAllProductsByCatName, getAllProductsByPrice, getAllProductsByRating, getAllProductsBySubCatId, getAllProductsBySubCatName, getAllProductsByThirdLavelCatId, getProduct, getProductRams, getProductsCount, updateProduct, updateProductRam, uploadImages, getProductRamsById, createProductWEIGHT, deleteProductWEIGHT, updateProductWeight, getProductWeight, getProductWeightById, createProductSize, deleteProductSize, updateProductSize, getProductSize, getProductSizeById, uploadBannerImages, getAllProductsBanners, filters, sortBy, searchProductController, createProductColor, deleteProductColor, updateProductColor, getProductColor, getProductColorById, createProductMaterials, deleteProductMaterials, updateProductMaterials, getProductMaterials, getProductMaterialsById, enrichVariants} from '../controllers/product.controller.js';
 
 import {removeImageFromCloudinary} from '../controllers/category.controller.js';
 
@@ -22,7 +22,7 @@ productRouter.get('/getAllProductsByPrice',getAllProductsByPrice);
 productRouter.get('/getAllProductsByRating',getAllProductsByRating);
 productRouter.get('/getAllProductsCount',getProductsCount);
 productRouter.get('/getAllFeaturedProducts',getAllFeaturedProducts);
-productRouter.delete('/deleteMultiple',deleteMultipleProduct);
+productRouter.delete('/deleteMultiple',auth,deleteMultipleProduct);
 productRouter.delete('/:id',auth,deleteProduct);
 productRouter.get('/:id',getProduct);
 productRouter.delete('/deteleImage',auth,removeImageFromCloudinary);
@@ -63,5 +63,125 @@ productRouter.post('/filters',filters);
 productRouter.post('/sortBy',sortBy);
 productRouter.post('/search/get',searchProductController);
 
+// ====================
+// SEO SLUG-BASED ROUTES
+// ====================
+
+// Get product by slug
+productRouter.get('/slug/:slug', async (req, res) => {
+    try {
+        const ProductModel = (await import('../models/product.modal.js')).default;
+        const product = await ProductModel.findOne({ 
+            slug: req.params.slug, 
+            isDeleted: false 
+        });
+        
+        if (!product) {
+            return res.status(404).json({
+                success: false,
+                message: 'Product not found'
+            });
+        }
+        
+        const enriched = await enrichVariants([product]);
+        const enrichedProduct = enriched[0] || product;
+        
+        return res.status(200).json({
+            success: true,
+            product: enrichedProduct
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+// Get products by category slug
+productRouter.get('/by-category-slug', async (req, res) => {
+    try {
+        const { categorySlug, page = 1, limit = 12, sort = '-createdAt' } = req.query;
+        const ProductModel = (await import('../models/product.modal.js')).default;
+        
+        const query = { 
+            categorySlug: categorySlug, 
+            isDeleted: false 
+        };
+        
+        // Build sort options
+        let sortOptions = {};
+        if (sort === 'price-low') sortOptions = { price: 1 };
+        else if (sort === 'price-high') sortOptions = { price: -1 };
+        else if (sort === 'popular') sortOptions = { rating: -1 };
+        else sortOptions = { createdAt: -1 };
+        
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        
+        const products = await ProductModel.find(query)
+            .sort(sortOptions)
+            .skip(skip)
+            .limit(parseInt(limit));
+        
+        const enriched = await enrichVariants(products);
+        const totalProducts = await ProductModel.countDocuments(query);
+        
+        return res.status(200).json({
+            success: true,
+            products: enriched,
+            totalProducts,
+            currentPage: parseInt(page),
+            totalPages: Math.ceil(totalProducts / parseInt(limit))
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+// Get products by subcategory slug
+productRouter.get('/by-subcategory-slug', async (req, res) => {
+    try {
+        const { categorySlug, subCategorySlug, page = 1, limit = 12, sort = '-createdAt' } = req.query;
+        const ProductModel = (await import('../models/product.modal.js')).default;
+        
+        const query = { 
+            categorySlug: categorySlug,
+            subCategorySlug: subCategorySlug, 
+            isDeleted: false 
+        };
+        
+        let sortOptions = {};
+        if (sort === 'price-low') sortOptions = { price: 1 };
+        else if (sort === 'price-high') sortOptions = { price: -1 };
+        else if (sort === 'popular') sortOptions = { rating: -1 };
+        else sortOptions = { createdAt: -1 };
+        
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        
+        const products = await ProductModel.find(query)
+            .sort(sortOptions)
+            .skip(skip)
+            .limit(parseInt(limit));
+        
+        const enriched = await enrichVariants(products);
+        const totalProducts = await ProductModel.countDocuments(query);
+        
+        return res.status(200).json({
+            success: true,
+            products: enriched,
+            totalProducts,
+            currentPage: parseInt(page),
+            totalPages: Math.ceil(totalProducts / parseInt(limit))
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
 
 export default productRouter;

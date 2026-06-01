@@ -2,3 +2,36 @@ node_modules/
 server/uploads/
 .DS_Store
 *.log
+
+# Environment variables - All .env files are secret
+.env
+.env.local
+.env.*.local
+/server/.env
+/server/.env.local
+/client/.env
+/client/.env.local
+/admin/.env
+/admin/.env.local
+/checkout-nextjs/.env
+/checkout-nextjs/.env.local
+
+# Build outputs
+client/dist
+client/build
+admin/dist
+admin/build
+server/dist
+
+# Checkout-nextjs (not in use)
+/checkout-nextjs/
+
+# IDE
+.vscode/
+.idea/
+
+# AI tools
+.kilo/
+
+# OS
+Thumbs.db

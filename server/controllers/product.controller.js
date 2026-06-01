@@ -5,27 +5,60 @@ import ProductSIZEModel from '../models/productSIZE.js';
 import ProductColorModel from '../models/productColor.js';
 import ProductMaterialsModel from '../models/productMaterials.js';
 import CategoryModel from '../models/category.modal.js';
+import VariantModel from '../models/variant.model.js';
 
-import { v2 as cloudinary } from 'cloudinary';
+import cloudinary from '../config/cloudinaryConfig.js';
 import fs from 'fs';
-import { request } from 'http';
 
 
-cloudinary.config({
-    cloud_name: process.env.cloudinary_Config_Cloud_Name,
-    api_key: process.env.cloudinary_Config_api_key,
-    api_secret: process.env.cloudinary_Config_api_secret,
-    secure: true,
-});
+// Helper: enrich variant products with aggregated variant data
+export async function enrichVariants(products) {
+    if (!products || products.length === 0) return products;
+    const variantProductIds = products.filter(p => p.hasVariants).map(p => p._id);
+    if (variantProductIds.length === 0) return products;
 
+    const variantAggs = await VariantModel.aggregate([
+        { $match: { product: { $in: variantProductIds }, isDeleted: false, isActive: true } },
+        { $group: {
+            _id: '$product',
+            minPrice: { $min: '$price' },
+            maxPrice: { $max: '$price' },
+            minOldPrice: { $min: '$oldPrice' },
+            totalStock: { $sum: '$stock' },
+            variantCount: { $sum: 1 }
+        }}
+    ]);
 
-//image upload
-var imagesArr = [];
+    const aggMap = {};
+    variantAggs.forEach(a => { aggMap[a._id.toString()] = a; });
+
+    return products.map(p => {
+        const pObj = p.toObject ? p.toObject() : { ...p };
+        if (pObj.hasVariants && aggMap[pObj._id?.toString()]) {
+            const agg = aggMap[pObj._id.toString()];
+            pObj.effectivePrice = agg.minPrice;
+            pObj.effectiveOldPrice = agg.minOldPrice;
+            pObj.effectiveStock = agg.totalStock;
+            pObj.variantCount = agg.variantCount;
+            pObj.effectiveDiscount = agg.minOldPrice > 0
+                ? Math.round(((agg.minOldPrice - agg.minPrice) / agg.minOldPrice) * 100)
+                : 0;
+        }
+        return pObj;
+    });
+}
+
 export async function uploadImages(request, response) {
     try {
-        imagesArr = [];
-
         const image = request.files;
+
+        if (!image || image.length === 0) {
+            return response.status(400).json({
+                message: "No files uploaded",
+                error: true,
+                success: false
+            });
+        }
 
         const options = {
             use_filename: true,
@@ -33,20 +66,14 @@ export async function uploadImages(request, response) {
             overwrite: false,
         };
 
-        for (let i = 0; i < image?.length; i++) {
-
-            const img = await cloudinary.uploader.upload(
-                image[i].path,
-                options,
-                function (error, result) {
-                    imagesArr.push(result.secure_url);
-                    fs.unlinkSync(`uploads/${request.files[i].filename}`);
-                }
-            );
-        }
+        const results = await Promise.all(image.map(async (file) => {
+            const result = await cloudinary.uploader.upload(file.path, options);
+            try { fs.unlinkSync(file.path); } catch (e) { /* ignore */ }
+            return result.secure_url;
+        }));
 
         return response.status(200).json({
-            images: imagesArr
+            images: results
         });
 
     } catch (error) {
@@ -58,12 +85,17 @@ export async function uploadImages(request, response) {
     }
 }
 
-var bannerImage = [];
 export async function uploadBannerImages(request, response) {
     try {
-        bannerImage = [];
-
         const image = request.files;
+
+        if (!image || image.length === 0) {
+            return response.status(400).json({
+                message: "No files uploaded",
+                error: true,
+                success: false
+            });
+        }
 
         const options = {
             use_filename: true,
@@ -71,20 +103,14 @@ export async function uploadBannerImages(request, response) {
             overwrite: false,
         };
 
-        for (let i = 0; i < image?.length; i++) {
-
-            const img = await cloudinary.uploader.upload(
-                image[i].path,
-                options,
-                function (error, result) {
-                    bannerImage.push(result.secure_url);
-                    fs.unlinkSync(`uploads/${request.files[i].filename}`);
-                }
-            );
-        }
+        const results = await Promise.all(image.map(async (file) => {
+            const result = await cloudinary.uploader.upload(file.path, options);
+            try { fs.unlinkSync(file.path); } catch (e) { /* ignore */ }
+            return result.secure_url;
+        }));
 
         return response.status(200).json({
-            images: bannerImage
+            images: results
         });
 
     } catch (error) {
@@ -100,6 +126,40 @@ export async function uploadBannerImages(request, response) {
 //create product
 export async function createProduct(request, response) {
     try {
+        // Check for duplicate SKU if provided
+        if (request.body.sku && request.body.sku.trim() !== '') {
+            const skuCheck = await ProductModel.checkDuplicateSku(request.body.sku.trim());
+            if (skuCheck.isDuplicate) {
+                return response.status(400).json({
+                    error: true,
+                    success: false,
+                    message: `A product with SKU "${request.body.sku}" already exists. Please use a unique SKU.`
+                });
+            }
+        }
+
+        // Check for duplicate name in same category if both provided
+        if (request.body.name && request.body.catId) {
+            const nameCheck = await ProductModel.checkDuplicateNameInCategory(request.body.name, request.body.catId);
+            if (nameCheck.isDuplicate) {
+                return response.status(400).json({
+                    error: true,
+                    success: false,
+                    message: `A product with name "${request.body.name}" already exists in this category.`
+                });
+            }
+        }
+
+        // Handle images - from request body (URLs from frontend)
+        let productImages = [];
+        if (request.body.images) {
+            if (Array.isArray(request.body.images)) {
+                productImages = request.body.images.filter(img => img && img.trim() !== '');
+            } else if (typeof request.body.images === 'string' && request.body.images.trim()) {
+                productImages = [request.body.images];
+            }
+        }
+
         // Auto calculate discount - exact percentage with proper rounding
         let discount = 0;
         if (request.body.oldPrice && request.body.price && request.body.oldPrice > 0 && request.body.price > 0 && request.body.oldPrice > request.body.price) {
@@ -109,22 +169,26 @@ export async function createProduct(request, response) {
 
         let product = new ProductModel({
             name: request.body.name,
+            sku: request.body.sku || '',
+            slug: request.body.slug || request.body.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+            metaTitle: request.body.metaTitle || '',
+            metaDescription: request.body.metaDescription || '',
             description: request.body.description,
             shortDescription: request.body.shortDescription || '',
-            images: imagesArr,
-            bannerimages: bannerImage,
+            images: productImages,
+            bannerimages: request.body.bannerimages || [],
             bannerTitleName: request.body.bannerTitleName,
             isDisplayOnHomeBanner: request.body.isDisplayOnHomeBanner,
             brand: request.body.brand,
             price: Number(request.body.price) || 0,
             oldPrice: Number(request.body.oldPrice) || 0,
-            catName: request.body.catName,
-            category: request.body.category,
-            catId: request.body.catId,
-            subCatId: request.body.subCatId,
-            subCat: request.body.subCat,
-            thirdsubCat: request.body.thirdsubCat,
-            thirdsubCatId: request.body.thirdsubCatId,
+            catName: request.body.catName || '',
+            category: request.body.category || null,
+            catId: request.body.catId || '',
+            subCatId: request.body.subCatId || '',
+            subCat: request.body.subCat || '',
+            thirdsubCat: request.body.thirdsubCat || '',
+            thirdsubCatId: request.body.thirdsubCatId || '',
             countInStock: Number(request.body.countInStock) || 0,
             rating: 0,
             isFeatured: request.body.isFeatured,
@@ -133,13 +197,14 @@ export async function createProduct(request, response) {
             size: request.body.size || [],
             productWeight: request.body.productWeight || [],
             color: request.body.color || [],
-            materials: Array.isArray(request.body.materials) ? request.body.materials.join(', ') : (request.body.materials || '')
+            materials: Array.isArray(request.body.materials) ? request.body.materials.join(', ') : (request.body.materials || ''),
+            productMaterials: request.body.productMaterials || [],
+            hasVariants: request.body.hasVariants === true,
+            variantAttributeNames: Array.isArray(request.body.variantAttributeNames) ? request.body.variantAttributeNames : []
 
         });
 
         product = await product.save();
-
-        console.log(product)
 
         if (!product) {
             return response.status(500).json({
@@ -147,10 +212,7 @@ export async function createProduct(request, response) {
                 success: false,
                 message: "Product Not created"
             });
-            return;
         }
-
-        imagesArr = [];
 
         return response.status(200).json({
             message: "Product Created successfully",
@@ -158,7 +220,6 @@ export async function createProduct(request, response) {
             success: true,
             product: product
         })
-
 
     } catch (error) {
         return response.status(500).json({
@@ -191,15 +252,17 @@ export async function getAllProducts(request, response) {
             })
         }
 
+        const enriched = await enrichVariants(products);
+
         return response.status(200).json({
             error: false,
             success: true,
-            products: products,
+            products: enriched,
             total: total,
             page: pageNum,
             totalPages: Math.ceil(total / limitNum),
             totalCount: totalProducts?.length,
-            totalProducts: totalProducts
+            totalProducts: await enrichVariants(totalProducts)
         })
 
 
@@ -246,10 +309,12 @@ export async function getAllProductsByCatId(request, response) {
 
         const totalPosts = products.length;
 
+        const enriched = await enrichVariants(products);
+
         return response.status(200).json({
             error: false,
             success: true,
-            products: products,
+            products: enriched,
             data: {
                 page,
                 perPage,
@@ -298,16 +363,18 @@ export async function getAllProductsByCatName(request, response) {
             .exec();
 
         if (!products) {
-            response.status(500).json({
+            return response.status(500).json({
                 error: true,
                 success: false
             })
         }
 
+        const enriched = await enrichVariants(products);
+
         return response.status(200).json({
             error: false,
             success: true,
-            products: products,
+            products: enriched,
             totalPages: totalPages,
             page: page,
         })
@@ -352,16 +419,18 @@ export async function getAllProductsBySubCatId(request, response) {
             .exec();
 
         if (!products) {
-            response.status(500).json({
+            return response.status(500).json({
                 error: true,
                 success: false
             })
         }
 
+        const enriched = await enrichVariants(products);
+
         return response.status(200).json({
             error: false,
             success: true,
-            products: products,
+            products: enriched,
             totalPages: totalPages,
             page: page,
         })
@@ -406,16 +475,18 @@ export async function getAllProductsBySubCatName(request, response) {
             .exec();
 
         if (!products) {
-            response.status(500).json({
+            return response.status(500).json({
                 error: true,
                 success: false
             })
         }
 
+        const enriched = await enrichVariants(products);
+
         return response.status(200).json({
             error: false,
             success: true,
-            products: products,
+            products: enriched,
             totalPages: totalPages,
             page: page,
         })
@@ -461,16 +532,18 @@ export async function getAllProductsByThirdLavelCatId(request, response) {
             .exec();
 
         if (!products) {
-            response.status(500).json({
+            return response.status(500).json({
                 error: true,
                 success: false
             })
         }
 
+        const enriched = await enrichVariants(products);
+
         return response.status(200).json({
             error: false,
             success: true,
-            products: products,
+            products: enriched,
             totalPages: totalPages,
             page: page,
         })
@@ -515,16 +588,18 @@ export async function getAllProductsByThirdLavelCatName(request, response) {
             .exec();
 
         if (!products) {
-            response.status(500).json({
+            return response.status(500).json({
                 error: true,
                 success: false
             })
         }
 
+        const enriched = await enrichVariants(products);
+
         return response.status(200).json({
             error: false,
             success: true,
-            products: products,
+            products: enriched,
             totalPages: totalPages,
             page: page,
         })
@@ -581,16 +656,17 @@ export async function getAllProductsByPrice(request, response) {
         return true;
     });
 
+    const enriched = await enrichVariants(filteredProducts);
+
     return response.status(200).json({
         error: false,
         success: true,
-        products: filteredProducts,
+        products: enriched,
         totalPages: 0,
         page: 0,
     });
 
 }
-
 
 
 //get all products by rating
@@ -657,7 +733,7 @@ export async function getAllProductsByRating(request, response) {
 
 
         if (!products) {
-            response.status(500).json({
+            return response.status(500).json({
                 error: true,
                 success: false
             })
@@ -667,8 +743,11 @@ export async function getAllProductsByRating(request, response) {
             error: false,
             success: true,
             products: products,
+            total: total,
+            page: pageNum,
             totalPages: totalPages,
-            page: page,
+            totalCount: totalProducts?.length,
+            totalProducts: await enrichVariants(totalProducts)
         })
 
     } catch (error) {
@@ -688,7 +767,7 @@ export async function getProductsCount(request, response) {
         const productsCount = await ProductModel.countDocuments();
 
         if (!productsCount) {
-            response.status(500).json({
+            return response.status(500).json({
                 error: true,
                 success: false
             })
@@ -720,16 +799,18 @@ export async function getAllFeaturedProducts(request, response) {
         }).populate("category");
 
         if (!products) {
-            response.status(500).json({
+            return response.status(500).json({
                 error: true,
                 success: false
             })
         }
 
+        const enriched = await enrichVariants(products);
+
         return response.status(200).json({
             error: false,
             success: true,
-            products: products,
+            products: enriched,
         })
 
     } catch (error) {
@@ -751,16 +832,18 @@ export async function getAllProductsBanners(request, response) {
         }).populate("category");
 
         if (!products) {
-            response.status(500).json({
+            return response.status(500).json({
                 error: true,
                 success: false
             })
         }
 
+        const enriched = await enrichVariants(products);
+
         return response.status(200).json({
             error: false,
             success: true,
-            products: products,
+            products: enriched,
         })
 
     } catch (error) {
@@ -808,7 +891,7 @@ export async function deleteProduct(request, response) {
     const deletedProduct = await ProductModel.findByIdAndDelete(request.params.id);
 
     if (!deletedProduct) {
-        response.status(404).json({
+        return response.status(404).json({
             message: "Product not deleted!",
             success: false,
             error: true
@@ -887,10 +970,13 @@ export async function getProduct(request, response) {
             })
         }
 
+        const enriched = await enrichVariants([product]);
+        const enrichedProduct = enriched[0] || product;
+
         return response.status(200).json({
             error: false,
             success: true,
-            product: product
+            product: enrichedProduct
         })
 
     } catch (error) {
@@ -904,27 +990,20 @@ export async function getProduct(request, response) {
 
 //delete images
 export async function removeImageFromCloudinary(request, response) {
-
-    const imgUrl = request.query.img;
-
-
-    const urlArr = imgUrl.split("/");
-    const image = urlArr[urlArr.length - 1];
-
-    const imageName = image.split(".")[0];
-
-
-    if (imageName) {
-        const res = await cloudinary.uploader.destroy(
-            imageName,
-            (error, result) => {
-                // console.log(error, res)
-            }
-        );
-
-        if (res) {
-            response.status(200).send(res);
+    try {
+        const imgUrl = request.query.img;
+        if (!imgUrl) {
+            return response.status(400).json({ error: true, message: "Image URL is required" });
         }
+        const urlArr = imgUrl.split("/");
+        const imageName = urlArr[urlArr.length - 1].split(".")[0];
+        if (!imageName) {
+            return response.status(400).json({ error: true, message: "Invalid image URL" });
+        }
+        const res = await cloudinary.uploader.destroy(imageName);
+        return response.status(200).send(res);
+    } catch (error) {
+        return response.status(500).json({ message: error.message || error, error: true, success: false });
     }
 }
 
@@ -932,6 +1011,30 @@ export async function removeImageFromCloudinary(request, response) {
 //updated product 
 export async function updateProduct(request, response) {
     try {
+        // Check for duplicate SKU if provided (excluding current product)
+        if (request.body.sku && request.body.sku.trim() !== '') {
+            const skuCheck = await ProductModel.checkDuplicateSku(request.body.sku.trim(), request.params.id);
+            if (skuCheck.isDuplicate) {
+                return response.status(400).json({
+                    error: true,
+                    success: false,
+                    message: `A product with SKU "${request.body.sku}" already exists. Please use a unique SKU.`
+                });
+            }
+        }
+
+        // Check for duplicate name in same category if both provided (excluding current product)
+        if (request.body.name && request.body.catId) {
+            const nameCheck = await ProductModel.checkDuplicateNameInCategory(request.body.name, request.body.catId, request.params.id);
+            if (nameCheck.isDuplicate) {
+                return response.status(400).json({
+                    error: true,
+                    success: false,
+                    message: `A product with name "${request.body.name}" already exists in this category.`
+                });
+            }
+        }
+
         // Auto calculate discount - exact percentage with proper rounding
         let discount = 0;
         if (request.body.oldPrice && request.body.price && request.body.oldPrice > 0 && request.body.price > 0 && request.body.oldPrice > request.body.price) {
@@ -943,6 +1046,10 @@ export async function updateProduct(request, response) {
             request.params.id,
             {
                 name: request.body.name,
+                sku: request.body.sku || '',
+                slug: request.body.slug || request.body.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+                metaTitle: request.body.metaTitle || '',
+                metaDescription: request.body.metaDescription || '',
                 subCat: request.body.subCat,
                 description: request.body.description,
                 shortDescription: request.body.shortDescription || '',
@@ -967,7 +1074,10 @@ export async function updateProduct(request, response) {
                 size: request.body.size,
                 productWeight: request.body.productWeight,
                 color: request.body.color,
-                materials: Array.isArray(request.body.materials) ? request.body.materials.join(', ') : (request.body.materials || '')
+                materials: Array.isArray(request.body.materials) ? request.body.materials.join(', ') : (request.body.materials || ''),
+                productMaterials: request.body.productMaterials || [],
+                ...(request.body.hasVariants !== undefined && { hasVariants: request.body.hasVariants === true }),
+                ...(request.body.variantAttributeNames !== undefined && { variantAttributeNames: Array.isArray(request.body.variantAttributeNames) ? request.body.variantAttributeNames : [] })
             },
             { new: true }
         );
@@ -979,8 +1089,6 @@ export async function updateProduct(request, response) {
                 status: false,
             });
         }
-
-        imagesArr = [];
 
         return response.status(200).json({
             message: "The product is updated",
@@ -1009,7 +1117,7 @@ export async function createProductRAMS(request, response) {
         productRAMS = await productRAMS.save();
 
         if (!productRAMS) {
-            response.status(500).json({
+            return response.status(500).json({
                 error: true,
                 success: false,
                 message: "Product RAMS Not created"
@@ -1048,7 +1156,7 @@ export async function deleteProductRAMS(request, response) {
     const deletedProductRams = await ProductRAMSModel.findByIdAndDelete(request.params.id);
 
     if (!deletedProductRams) {
-        response.status(404).json({
+        return response.status(404).json({
             message: "Item not deleted!",
             success: false,
             error: true
@@ -1169,7 +1277,7 @@ export async function createProductWEIGHT(request, response) {
         productWeight = await productWeight.save();
 
         if (!productWeight) {
-            response.status(500).json({
+            return response.status(500).json({
                 error: true,
                 success: false,
                 message: "Product WEIGHT Not created"
@@ -1208,7 +1316,7 @@ export async function deleteProductWEIGHT(request, response) {
     const deletedProductWeight = await ProductWEIGHTModel.findByIdAndDelete(request.params.id);
 
     if (!deletedProductWeight) {
-        response.status(404).json({
+        return response.status(404).json({
             message: "Item not deleted!",
             success: false,
             error: true
@@ -1330,7 +1438,7 @@ export async function createProductSize(request, response) {
         productSize = await productSize.save();
 
         if (!productSize) {
-            response.status(500).json({
+            return response.status(500).json({
                 error: true,
                 success: false,
                 message: "Product size Not created"
@@ -1369,7 +1477,7 @@ export async function deleteProductSize(request, response) {
     const deletedProductSize = await ProductSIZEModel.findByIdAndDelete(request.params.id);
 
     if (!deletedProductSize) {
-        response.status(404).json({
+        return response.status(404).json({
             message: "Item not deleted!",
             success: false,
             error: true
@@ -1523,12 +1631,13 @@ export async function filters(request, response) {
 
         const products = await ProductModel.find(filters).populate("category").skip((page - 1) * limit).limit(parseInt(limit));
 
+        const enriched = await enrichVariants(products);
         const total = await ProductModel.countDocuments(filters);
 
         return response.status(200).json({
             error: false,
             success: true,
-            products: products,
+            products: enriched,
             total: total,
             page: parseInt(page),
             totalPages: Math.ceil(total / limit)
@@ -1601,12 +1710,13 @@ export async function searchProductController(request, response) {
             ],
         }).populate("category")
 
-        const total = await products?.length
+        const enriched = await enrichVariants(products);
+        const total = await enriched?.length
 
         return response.status(200).json({
             error: false,
             success: true,
-            products: products,
+            products: enriched,
             total: 1,
             page: parseInt(page),
             totalPages: 1
@@ -1632,7 +1742,7 @@ export async function createProductColor(request, response) {
         productColor = await productColor.save();
 
         if (!productColor) {
-            response.status(500).json({
+            return response.status(500).json({
                 error: true,
                 success: false,
                 message: "Product Color Not created"
@@ -1748,7 +1858,7 @@ export async function createProductMaterials(request, response) {
         productMaterials = await productMaterials.save();
 
         if (!productMaterials) {
-            response.status(500).json({
+            return response.status(500).json({
                 error: true,
                 success: false,
                 message: "Product Materials Not created"

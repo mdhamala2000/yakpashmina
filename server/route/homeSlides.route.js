@@ -11,7 +11,7 @@ homeSlidesRouter.get('/',getHomeSlides);
 homeSlidesRouter.get('/:id',getSlide);
 homeSlidesRouter.delete('/deteleImage',auth,removeImageFromCloudinary);
 homeSlidesRouter.delete('/:id',auth,deleteSlide);
-homeSlidesRouter.delete('/deleteMultiple',deleteMultipleSlides);
+homeSlidesRouter.delete('/deleteMultiple',auth,deleteMultipleSlides);
 homeSlidesRouter.put('/:id',auth,updatedSlide);
 
 

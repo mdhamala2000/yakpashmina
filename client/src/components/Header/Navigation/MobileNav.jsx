@@ -1,5 +1,5 @@
 import { Button } from '@mui/material'
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect } from 'react';
 import { IoHomeOutline } from "react-icons/io5";
 import { IoSearch } from "react-icons/io5";
 import { LuHeart } from "react-icons/lu";
@@ -9,50 +9,14 @@ import { NavLink } from "react-router";
 import { MdOutlineFilterAlt } from "react-icons/md";
 import { MyContext } from '../../../App';
 import { useLocation } from "react-router-dom";
-import { fetchDataFromApi } from "../../../utils/api";
 
 const MobileNav = () => {
 
     const context = useContext(MyContext)
-    const [catData, setCatData] = useState([]);
-    const [loading, setLoading] = useState(true);
-
     const location = useLocation();
 
     useEffect(() => {
-        const filterCategoriesWithProducts = async () => {
-            if (!context?.catData?.length) {
-                setLoading(false);
-                return;
-            }
-
-            const validCats = [];
-            
-            for (const cat of context.catData) {
-                try {
-                    const res = await fetchDataFromApi(`/api/product/getAllProductsByCatId/${cat._id}?page=1&limit=1`);
-                    const totalProducts = res?.totalProducts || res?.products?.length || 0;
-                    
-                    if (totalProducts > 0) {
-                        validCats.push(cat);
-                    }
-                } catch (e) {
-                    if (cat.productCount > 0) {
-                        validCats.push(cat);
-                    }
-                }
-            }
-            
-            setCatData(validCats);
-            setLoading(false);
-        };
-
-        filterCategoriesWithProducts();
-    }, [context?.catData]);
-
-    useEffect(() => {
-       
-        if (location.pathname === "/products" || location.pathname === "/search") {
+        if (location.pathname === "/products" || location.pathname === "/search" || location.pathname.startsWith("/category/")) {
             context?.setisFilterBtnShow(true)
         } else {
             context?.setisFilterBtnShow(false)
@@ -67,7 +31,7 @@ const MobileNav = () => {
 
     return (
         <div className='mobileNav bg-white p-1 px-3 w-full flex items-center justify-between fixed bottom-0 left-0 gap-0 z-[51]'>
-            <NavLink to="/" exact={true} activeClassName="isActive" onClick={()=>context?.setOpenSearchPanel(false)}>
+            <NavLink to="/" className={({ isActive }) => isActive ? "isActive" : ""} onClick={()=>context?.setOpenSearchPanel(false)}>
                 <Button className="flex-col !w-[40px] !min-w-[40px] !capitalize !text-gray-700">
                     <IoHomeOutline size={18} />
                     <span className='text-[12px]'>Home</span>
@@ -91,7 +55,7 @@ const MobileNav = () => {
 
 
 
-            <NavLink to="/my-list" exact={true} activeClassName="isActive" onClick={()=>context?.setOpenSearchPanel(false)}>
+            <NavLink to="/my-list" className={({ isActive }) => isActive ? "isActive" : ""} onClick={()=>context?.setOpenSearchPanel(false)}>
                 <Button className="flex-col !w-[40px] !min-w-[40px] !capitalize !text-gray-700">
                     <LuHeart size={18} />
                     <span className='text-[12px]'>Wishlist</span>
@@ -99,14 +63,14 @@ const MobileNav = () => {
             </NavLink>
 
 
-            <NavLink to="/my-orders" exact={true} activeClassName="isActive" onClick={()=>context?.setOpenSearchPanel(false)}>
+            <NavLink to="/my-orders" className={({ isActive }) => isActive ? "isActive" : ""} onClick={()=>context?.setOpenSearchPanel(false)}>
                 <Button className="flex-col !w-[40px] !min-w-[40px] !capitalize !text-gray-700">
                     <BsBagCheck size={18} />
                     <span className='text-[12px]'>Orders</span>
                 </Button>
             </NavLink>
 
-            <NavLink to="/my-account" exact={true} activeClassName="isActive" onClick={()=>context?.setOpenSearchPanel(false)}>
+            <NavLink to="/my-account" className={({ isActive }) => isActive ? "isActive" : ""} onClick={()=>context?.setOpenSearchPanel(false)}>
                 <Button className="flex-col !w-[40px] !min-w-[40px] !capitalize !text-gray-700">
                     <FiUser size={18} />
                     <span className='text-[12px]'>Account</span>

@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 
-// Default rates (used for conversion)
 const DEFAULT_RATES = {
   USD: 1,
   EUR: 0.92,
@@ -11,15 +10,16 @@ const DEFAULT_RATES = {
   AED: 3.67
 };
 
-// Base currency is USD - prices stored in USD
+const VITE_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 export const CURRENCIES = {
-  USD: { code: 'USD', symbol: '$', name: 'US Dollar', rate: 1, region: 'United States', flag: '🇺🇸' },
-  EUR: { code: 'EUR', symbol: '€', name: 'Euro', rate: 0.92, region: 'Europe', flag: '🇪🇺' },
-  GBP: { code: 'GBP', symbol: '£', name: 'British Pound', rate: 0.79, region: 'United Kingdom', flag: '🇬🇧' },
-  INR: { code: 'INR', symbol: '₹', name: 'Indian Rupee', rate: 83.50, region: 'India', flag: '🇮🇳' },
-  AUD: { code: 'AUD', symbol: 'A$', name: 'Australian Dollar', rate: 1.53, region: 'Australia', flag: '🇦🇺' },
-  CAD: { code: 'CAD', symbol: 'C$', name: 'Canadian Dollar', rate: 1.36, region: 'Canada', flag: '🇨🇦' },
-  AED: { code: 'AED', symbol: 'د.إ', name: 'UAE Dirham', rate: 3.67, region: 'UAE', flag: '🇦🇪' }
+  USD: { code: 'USD', symbol: '$', name: 'US Dollar', region: 'United States', flag: '🇺🇸' },
+  EUR: { code: 'EUR', symbol: '€', name: 'Euro', region: 'Europe', flag: '🇪🇺' },
+  GBP: { code: 'GBP', symbol: '£', name: 'British Pound', region: 'United Kingdom', flag: '🇬🇧' },
+  INR: { code: 'INR', symbol: '₹', name: 'Indian Rupee', region: 'India', flag: '🇮🇳' },
+  AUD: { code: 'AUD', symbol: 'A$', name: 'Australian Dollar', region: 'Australia', flag: '🇦🇺' },
+  CAD: { code: 'CAD', symbol: 'C$', name: 'Canadian Dollar', region: 'Canada', flag: '🇨🇦' },
+  AED: { code: 'AED', symbol: 'د.إ', name: 'UAE Dirham', region: 'UAE', flag: '🇦🇪' }
 };
 
 const CurrencyContext = createContext();
@@ -29,7 +29,14 @@ export const CurrencyProvider = ({ children }) => {
     const saved = localStorage.getItem('selectedCurrency');
     return saved || 'USD';
   });
-  
+
+  const [rates, setRates] = useState(() => {
+    const saved = localStorage.getItem('exchangeRates');
+    return saved ? JSON.parse(saved) : DEFAULT_RATES;
+  });
+
+  const [ratesSource, setRatesSource] = useState('default');
+
   const [region, setRegion] = useState(() => {
     return CURRENCIES[currency]?.region || 'United States';
   });
@@ -39,16 +46,40 @@ export const CurrencyProvider = ({ children }) => {
     setRegion(CURRENCIES[currency]?.region || 'United States');
   }, [currency]);
 
+  useEffect(() => {
+    const fetchRates = async () => {
+      try {
+        const res = await fetch(`${VITE_API_URL}/api/currency/rates`);
+        const data = await res.json();
+        if (data?.rates) {
+          setRates(data.rates);
+          setRatesSource(data.source || 'live');
+          localStorage.setItem('exchangeRates', JSON.stringify(data.rates));
+        }
+      } catch {
+        const saved = localStorage.getItem('exchangeRates');
+        if (saved) {
+          setRates(JSON.parse(saved));
+          setRatesSource('cache');
+        }
+      }
+    };
+
+    fetchRates();
+    const interval = setInterval(fetchRates, 6 * 60 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const convertPrice = (priceInUSD) => {
     if (!priceInUSD || isNaN(priceInUSD)) return 0;
-    const rate = CURRENCIES[currency]?.rate || 1;
+    const rate = rates[currency] || 1;
     return Math.round((priceInUSD * rate) * 100) / 100;
   };
 
   const formatPrice = (priceInUSD, showSymbol = true) => {
     const converted = convertPrice(priceInUSD);
     const symbol = CURRENCIES[currency]?.symbol || '$';
-    
+
     if (showSymbol) {
       return `${symbol}${converted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     }
@@ -64,7 +95,7 @@ export const CurrencyProvider = ({ children }) => {
 
   const convertBackToUSD = (priceInCurrency) => {
     if (!priceInCurrency || isNaN(priceInCurrency)) return 0;
-    const rate = CURRENCIES[currency]?.rate || 1;
+    const rate = rates[currency] || 1;
     return Math.round((priceInCurrency / rate) * 100) / 100;
   };
 
@@ -79,7 +110,8 @@ export const CurrencyProvider = ({ children }) => {
     convertBackToUSD,
     currentCurrency: CURRENCIES[currency],
     CURRENCIES,
-    exchangeRates: DEFAULT_RATES
+    exchangeRates: rates,
+    ratesSource
   };
 
   return (

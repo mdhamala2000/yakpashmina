@@ -1,5 +1,8 @@
 {
-  "dependencies": {
-    "@airwallex/airtracker": "^3.2.0"
+  "name": "yakpashamina",
+  "private": true,
+  "scripts": {
+    "dev": "npm run dev --prefix client",
+    "build": "npm run build --prefix client"
   }
 }

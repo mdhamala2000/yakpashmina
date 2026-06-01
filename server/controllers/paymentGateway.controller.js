@@ -7,9 +7,6 @@ const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const STRIPE_PUBLISHABLE_KEY = process.env.STRIPE_PUBLISHABLE_KEY;
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
 
-const AIRWALLEX_API_KEY = process.env.AIRWALLEX_API_KEY;
-const AIRWALLEX_CLIENT_ID = process.env.AIRWALLEX_CLIENT_ID;
-
 const PAYPAL_MODE = process.env.PAYPAL_MODE || 'sandbox';
 const PAYPAL_CLIENT_ID_TEST = process.env.PAYPAL_CLIENT_ID_TEST;
 const PAYPAL_SECRET_TEST = process.env.PAYPAL_SECRET_TEST;
@@ -44,28 +41,29 @@ export const getPaymentGateways = async (request, response) => {
         gatewayObj.hasCredentials = !!(gatewayObj.apiSecret || (STRIPE_SECRET_KEY && STRIPE_SECRET_KEY.includes('sk_')));
         gatewayObj.publishableKey = gatewayObj.publishableKey || STRIPE_PUBLISHABLE_KEY || '';
         gatewayObj.webhookSecret = gatewayObj.webhookSecret || STRIPE_WEBHOOK_SECRET || '';
-      } else if (gatewayObj.gatewayType === 'airwallex') {
-        gatewayObj.hasCredentials = !!(gatewayObj.apiKey || (AIRWALLEX_API_KEY && AIRWALLEX_API_KEY.length > 10));
       } else if (gatewayObj.gatewayType === 'paypal') {
         gatewayObj.hasCredentials = !!(gatewayObj.clientId || gatewayObj.clientSecret || 
           (isLive ? (PAYPAL_CLIENT_ID_LIVE && PAYPAL_SECRET_LIVE) : (PAYPAL_CLIENT_ID_TEST && PAYPAL_SECRET_TEST)));
       } else if (gatewayObj.gatewayType === 'bank_deposit') {
-        gatewayObj.bankName = gatewayObj.bankName || BANK_NAME;
-        gatewayObj.accountName = gatewayObj.accountHolderName || BANK_ACCOUNT_NAME;
-        gatewayObj.accountNumber = gatewayObj.accountNumber || BANK_ACCOUNT_NUMBER;
-        gatewayObj.swift = gatewayObj.routingNumber || BANK_SWIFT;
-        gatewayObj.instructions = gatewayObj.instructions || BANK_INSTRUCTIONS;
-        gatewayObj.bankCode = gatewayObj.bankCode || BANK_CODE;
-        gatewayObj.branchCode = gatewayObj.branchCode || BANK_BRANCH_CODE;
-        gatewayObj.location = gatewayObj.location || BANK_LOCATION;
-        gatewayObj.accountType = gatewayObj.accountType || BANK_ACCOUNT_TYPE;
-        gatewayObj.bankAddress = gatewayObj.bankAddress || BANK_ADDRESS;
-        gatewayObj.city = gatewayObj.city || BANK_CITY;
-        gatewayObj.hasCredentials = !!(gatewayObj.bankName || BANK_NAME);
+        gatewayObj.bankName = BANK_NAME || gatewayObj.bankName;
+        gatewayObj.accountName = BANK_ACCOUNT_NAME || gatewayObj.accountHolderName;
+        gatewayObj.accountNumber = BANK_ACCOUNT_NUMBER || gatewayObj.accountNumber;
+        gatewayObj.swift = BANK_SWIFT || gatewayObj.routingNumber;
+        gatewayObj.instructions = BANK_INSTRUCTIONS || gatewayObj.instructions;
+        gatewayObj.bankCode = BANK_CODE || gatewayObj.bankCode;
+        gatewayObj.branchCode = BANK_BRANCH_CODE || gatewayObj.branchCode;
+        gatewayObj.location = BANK_LOCATION || gatewayObj.location;
+        gatewayObj.accountType = BANK_ACCOUNT_TYPE || gatewayObj.accountType;
+        gatewayObj.bankAddress = BANK_ADDRESS || gatewayObj.bankAddress;
+        gatewayObj.city = BANK_CITY || gatewayObj.city;
+        gatewayObj.hasCredentials = !!(BANK_NAME || gatewayObj.bankName);
       } else if (gatewayObj.gatewayType === 'cod') {
         gatewayObj.minAmount = COD_MIN_AMOUNT;
         gatewayObj.maxAmount = COD_MAX_AMOUNT;
         gatewayObj.instructions = COD_INSTRUCTIONS;
+      } else if (gatewayObj.gatewayType === 'airwallex') {
+        gatewayObj.hasCredentials = !!(process.env.AIRWALLEX_API_KEY && process.env.AIRWALLEX_CLIENT_ID);
+        gatewayObj.environment = gatewayObj.environment || process.env.AIRWALLEX_ENVIRONMENT || 'sandbox';
       }
       
       delete gatewayObj.apiSecret;
@@ -295,11 +293,6 @@ export const getCredentials = async (request, response) => {
         publishableKey: STRIPE_PUBLISHABLE_KEY,
         webhookSecret: STRIPE_WEBHOOK_SECRET
       };
-    } else if (gatewayType === 'airwallex') {
-      credentials = {
-        apiKey: AIRWALLEX_API_KEY,
-        clientId: AIRWALLEX_CLIENT_ID
-      };
     } else if (gatewayType === 'paypal') {
       credentials = {
         mode: isLive ? 'live' : 'sandbox',
@@ -327,6 +320,13 @@ export const getCredentials = async (request, response) => {
         maxAmount: COD_MAX_AMOUNT,
         instructions: COD_INSTRUCTIONS
       };
+    } else if (gatewayType === 'airwallex') {
+      credentials = {
+        apiKey: process.env.AIRWALLEX_API_KEY ? '••••' + process.env.AIRWALLEX_API_KEY.slice(-8) : '',
+        clientId: process.env.AIRWALLEX_CLIENT_ID || '',
+        environment: process.env.AIRWALLEX_ENVIRONMENT || 'sandbox',
+        orgId: process.env.AIRWALLEX_ORG_ID || ''
+      };
     }
 
     return response.status(200).json({
@@ -349,8 +349,8 @@ export const initializePaymentGateways = async () => {
     const defaultGateways = [
       { gatewayType: 'stripe', displayName: 'Stripe', environment: 'sandbox' },
       { gatewayType: 'bank_deposit', displayName: 'Bank Transfer', environment: 'sandbox' },
-      { gatewayType: 'airwallex', displayName: 'Airwallex', environment: 'sandbox' },
-      { gatewayType: 'paypal', displayName: 'PayPal', environment: 'sandbox' }
+      { gatewayType: 'paypal', displayName: 'PayPal', environment: 'sandbox' },
+      { gatewayType: 'airwallex', displayName: 'Airwallex', environment: 'sandbox' }
     ];
 
     for (const gateway of defaultGateways) {
@@ -415,14 +415,6 @@ export const testPaymentGateway = async (request, response) => {
       } else {
         message = "Missing PayPal credentials";
       }
-    } else if (gatewayType === 'airwallex') {
-      const testApiKey = credentials?.apiKey || gateway.apiKey;
-      if (testApiKey && testApiKey.length > 10) {
-        isValid = true;
-        message = "Airwallex credentials validated successfully";
-      } else {
-        message = "Invalid Airwallex API key";
-      }
     } else if (gatewayType === 'bank_deposit') {
       const bankName = credentials?.bankName || gateway.bankName;
       const accountNumber = credentials?.accountNumber || gateway.accountNumber;
@@ -431,6 +423,15 @@ export const testPaymentGateway = async (request, response) => {
         message = "Bank transfer details validated successfully";
       } else {
         message = "Missing bank details";
+      }
+    } else if (gatewayType === 'airwallex') {
+      const apiKey = process.env.AIRWALLEX_API_KEY;
+      const clientId = process.env.AIRWALLEX_CLIENT_ID;
+      if (apiKey && clientId) {
+        isValid = true;
+        message = "Airwallex credentials validated successfully (from .env)";
+      } else {
+        message = "Missing Airwallex credentials in .env";
       }
     } else {
       message = "Gateway type validation not implemented";

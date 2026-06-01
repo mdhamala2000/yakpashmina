@@ -5,7 +5,7 @@ import { addBlog, deleteBlog, getBlog, getBlogs, updateBlog, uploadImages } from
 
 const blogRouter = Router();
 
-blogRouter.post('/uploadImages',upload.array('images'),uploadImages);
+blogRouter.post('/uploadImages',auth,upload.array('images'),uploadImages);
 blogRouter.post('/add',auth,addBlog);
 blogRouter.get('/',getBlogs);
 blogRouter.get('/:id',getBlog);

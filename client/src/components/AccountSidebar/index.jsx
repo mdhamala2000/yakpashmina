@@ -142,11 +142,36 @@ const AccountSidebar = () => {
         <h6 className="text-[13px] font-[500]">{context?.userData?.email}</h6>
       </div>
 
-      <ul className="list-none pb-5 bg-[#f1f1f1] myAccountTabs">
+<ul className="list-none pb-5 bg-[#f1f1f1] myAccountTabs">
         <li className="w-full">
-          <NavLink to="/my-account" exact={true} activeClassName="isActive">
+          <NavLink to="/my-account" className={({ isActive }) => isActive ? "isActive" : ""}>
             <Button className="w-full !text-left !py-2 !px-5 !justify-start !capitalize !text-[rgba(0,0,0,0.8)] !rounded-none flex items-center gap-2">
               <FaRegUser className="text-[15px]" /> My Profile
+            </Button>
+          </NavLink>
+        </li>
+
+        <li className="w-full">
+          <NavLink to="/address" className={({ isActive }) => isActive ? "isActive" : ""}>
+            <Button className="w-full !text-left !py-2 !px-5 !justify-start !capitalize !text-[rgba(0,0,0,0.8)] !rounded-none flex items-center gap-2">
+              <LuMapPin className="text-[18px]" /> Address
+            </Button>
+          </NavLink>
+        </li>
+
+        <li className="w-full">
+          <NavLink to="/my-list" className={({ isActive }) => isActive ? "isActive" : ""}>
+            <Button className="w-full !py-2  !text-left !px-5 !justify-start !capitalize !text-[rgba(0,0,0,0.8)] !rounded-none flex items-center gap-2">
+              <IoMdHeartEmpty className="text-[17px]" /> My List
+            </Button>
+          </NavLink>
+        </li>
+        
+
+        <li className="w-full">
+          <NavLink to="/my-orders" className={({ isActive }) => isActive ? "isActive" : ""}>
+            <Button className="w-full  !py-2 !text-left !px-5 !justify-start !capitalize !text-[rgba(0,0,0,0.8)] !rounded-none flex items-center gap-2">
+              <IoBagCheckOutline className="text-[17px]" /> My Orders
             </Button>
           </NavLink>
         </li>

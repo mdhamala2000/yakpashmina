@@ -1,0 +1,20 @@
+.reviewsSlider .swiper-slide {
+  height: auto !important;
+  display: flex !important;
+}
+
+.reviewsSlider .swiper-wrapper {
+  align-items: stretch !important;
+}
+
+.reviews-slider-section .swiper-pagination-bullet {
+  background: #d1d5db !important;
+  opacity: 1 !important;
+  transition: all 0.3s ease !important;
+}
+
+.reviews-slider-section .swiper-pagination-bullet-active {
+  background: #111827 !important;
+  width: 24px !important;
+  border-radius: 4px !important;
+}

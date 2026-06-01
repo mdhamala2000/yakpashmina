@@ -1,5 +1,6 @@
 import axios from "axios";
-const apiUrl = import.meta.env.VITE_API_URL;
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+console.log('API URL:', apiUrl);
 
 export const postData = async (url, formData) => {
     try {
@@ -41,7 +42,30 @@ export const fetchDataFromApi = async (url) => {
         return data;
     } catch (error) {
         console.log(error);
-        return error;
+        return { error: true, message: error.message, data: null };
+    }
+}
+
+export const getData = async (url) => {
+    try {
+        const response = await fetch(apiUrl + url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include'
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            return data;
+        } else {
+            const errorData = await response.json();
+            return errorData;
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        return { error: true, message: error.message };
     }
 }
 
@@ -72,6 +96,7 @@ export const uploadImages = async (url, formData ) => {
         return response;
     } catch (error) {
         console.error("Upload error:", error);
+        console.error("Error response:", error.response?.data);
         throw error;
     }
 }
@@ -112,13 +137,18 @@ export const editData = async (url, updatedData) => {
 
 
 export const deleteImages = async (url,image ) => {
-    const { res } = await axios.delete(apiUrl + url, {
-        withCredentials: true,
-        headers: {
-            'Content-Type': 'application/json',
-        },
-    });
-    return res;
+    try {
+        const response = await axios.delete(apiUrl + url, {
+            withCredentials: true,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+        return response.data || response;
+    } catch (error) {
+        console.error('Delete images error:', error);
+        return { error: true, message: error.message };
+    }
 }
 
 
@@ -168,12 +198,17 @@ export const putData = async (url, formData) => {
 }
 
 export const deleteMultipleData = async (url,data ) => {
-    const { res } = await axios.delete(apiUrl + url, {
-        withCredentials: true,
-        data: data,
-        headers: {
-            'Content-Type': 'application/json',
-        },
-    })
-    return res;
+    try {
+        const response = await axios.delete(apiUrl + url, {
+            withCredentials: true,
+            data: data,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        })
+        return response.data || response;
+    } catch (error) {
+        console.error('Delete multiple error:', error);
+        return { error: true, message: error.message };
+    }
 }

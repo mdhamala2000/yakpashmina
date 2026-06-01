@@ -15,21 +15,19 @@
 .productsSlider .swiper-slide,
 .mySwiper .swiper-slide {
   width: 100% !important;
-  max-width: 280px !important;
   flex-shrink: 0 !important;
   box-sizing: border-box !important;
 }
 
 .productItem {
   width: 100% !important;
-  max-width: 280px !important;
 }
 
 @media (max-width: 640px) {
   .productsSlider .swiper-slide,
   .mySwiper .swiper-slide,
   .productItem {
-    max-width: 160px !important;
+    max-width: none !important;
   }
 }
 
@@ -37,6 +35,6 @@
   .productsSlider .swiper-slide,
   .mySwiper .swiper-slide,
   .productItem {
-    max-width: 140px !important;
+    max-width: none !important;
   }
 }

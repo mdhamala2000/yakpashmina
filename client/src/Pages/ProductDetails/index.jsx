@@ -1,239 +1,126 @@
-import React, { useEffect, useRef, useState } from "react";
-import Breadcrumbs from "@mui/material/Breadcrumbs";
+import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ProductZoom } from "../../components/ProductZoom";
-import ProductsSlider from '../../components/ProductsSlider';
 import { ProductDetailsComponent } from "../../components/ProductDetails";
 
 import { fetchDataFromApi } from "../../utils/api";
-import CircularProgress from '@mui/material/CircularProgress';
-import { Reviews } from "./reviews";
+import { useRecentlyViewed } from "../../hooks/useRecentlyViewed";
+import CircularProgress from "@mui/material/CircularProgress";
 import SEO from "../../components/SEO";
+import YouMayAlsoLike from "../../components/YouMayAlsoLike";
+import RecentlyViewed from "../../components/RecentlyViewed";
+import { FiChevronRight, FiPackage } from "react-icons/fi";
 
-export const ProductDetails = () => {
-
-  const [activeTab, setActiveTab] = useState(0);
-  const [productData, setProductData] = useState();
-  const [isLoading, setIsLoading] = useState(false);
+const ProductDetails = () => {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [reviewsCount, setReviewsCount] = useState(0);
-  const [relatedProductData, setRelatedProductData] = useState([]);
-  const [recommendedProducts, setRecommendedProducts] = useState([]);
-  const [liveRating, setLiveRating] = useState(0);
+  const [relatedProducts, setRelatedProducts] = useState([]);
+  const [rating, setRating] = useState(0);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const { id } = useParams();
-
-  const reviewSec = useRef();
-
-  useEffect(() => {
-    fetchDataFromApi(`/api/user/getReviews?productId=${id}`).then((res) => {
-      if (res?.error === false) {
-        setLiveRating(res.avgRating || 0);
-        setReviewsCount(res.totalReviews || 0);
-      }
-    })
-
-  }, [id])
+  const { items: recentlyViewed, addProduct } = useRecentlyViewed(id);
 
   useEffect(() => {
-    setIsLoading(true);
-    fetchDataFromApi(`/api/product/${id}`).then((res) => {
-      if (res?.error === false) {
-        setProductData(res?.product);
-
-        fetchDataFromApi(`/api/product/getAllProductsBySubCatId/${res?.product?.subCatId}`).then((res) => {
-          if (res?.error === false) {
-           const filteredData = res?.products?.filter((item) => item._id !== id);
-            setRelatedProductData(filteredData)
+    if (!id) return;
+    setLoading(true);
+    setErrorMsg("");
+    fetchDataFromApi(`/api/product/${id}`)
+      .then((res) => {
+        if (res?.error === false && res?.product) {
+          setData(res.product);
+          addProduct(res.product);
+          fetchDataFromApi(`/api/user/getReviews?productId=${id}`)
+            .then((rRes) => {
+              if (rRes?.error === false) {
+                setRating(rRes.avgRating || 0);
+                setReviewsCount(rRes.totalReviews || 0);
+              }
+            });
+          if (res.product.subCatId) {
+            fetchDataFromApi(`/api/product/getAllProductsBySubCatId/${res.product.subCatId}`)
+              .then((relRes) => {
+                if (relRes?.error === false) {
+                  const filtered = (relRes.products || []).filter((p) => p._id !== id);
+                  setRelatedProducts(filtered);
+                }
+              });
           }
-        })
+        } else {
+          setErrorMsg("Product not found");
+        }
+      })
+      .catch(() => setErrorMsg("Failed to load product"))
+      .finally(() => setLoading(false));
+    window.scrollTo(0, 0);
+  }, [id]);
 
-        setTimeout(() => {
-          setIsLoading(false);
-        }, 700);
-      }
-    })
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <CircularProgress size={36} />
+          <p className="text-gray-400 text-sm mt-4">Loading product...</p>
+        </div>
+      </div>
+    );
+  }
 
-    fetchDataFromApi("/api/product/getAllProducts?page=1&limit=10").then((res) => {
-      if (res?.success) setRecommendedProducts(res?.products || [])
-    })
-
-
-    window.scrollTo(0, 0)
-}, [id])
-
-  const gotoReviews = () => {
-    window.scrollTo({
-      top: reviewSec?.current.offsetTop - 170,
-      behavior: 'smooth',
-    })
-
-    setActiveTab(1)
-
+  if (errorMsg || !data) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <FiPackage className="text-gray-300 text-4xl mx-auto mb-3" />
+          <p className="text-gray-500 text-sm">{errorMsg || "Product not found"}</p>
+        </div>
+      </div>
+    );
   }
 
   return (
     <>
-      <SEO 
-        title={productData?.name || "Product"}
-        description={productData?.description?.substring(0, 160) || "Premium Pashmina product from Yak Pashmina"}
-        image={productData?.images?.[0]}
+      <SEO
+        title={data?.name || "Product"}
+        description={data?.description?.substring(0, 160) || "Product from Yak Pashmina"}
+        image={data?.images?.[0]}
         url={`/product/${id}`}
         type="product"
-        schema={productData ? {
-          "@context": "https://schema.org",
-          "@type": "Product",
-          "name": productData.name,
-          "image": productData.images,
-          "description": productData.description,
-          "brand": { "@type": "Brand", "name": productData.brand || "Yak Pashmina" },
-          "sku": productData._id,
-          "offers": {
-            "@type": "Offer",
-            "price": productData.price,
-            "priceCurrency": "USD",
-            "availability": productData.countInStock > 0 
-              ? "https://schema.org/InStock" 
-              : "https://schema.org/OutOfStock"
-          },
-          "aggregateRating": {
-            "@type": "AggregateRating",
-            "ratingValue": liveRating || productData.rating || 0,
-            "reviewCount": reviewsCount || 0
-          }
-        } : null}
       />
-      <SEO 
-        url={`/product/${id}`}
-        schema={{
-          "@context": "https://schema.org",
-          "@type": "BreadcrumbList",
-          "itemListElement": [
-            { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://yakpashamina.com/" },
-            { "@type": "ListItem", "position": 2, "name": "Products", "item": "https://yakpashamina.com/products" },
-            { "@type": "ListItem", "position": 3, "name": productData?.name || "Product" }
-          ]
-        }}
-      />
-      <div className="py-5 hidden">
-        <div className="container">
-          <Breadcrumbs aria-label="breadcrumb">
-            <Link
-              underline="hover"
-              color="inherit"
-              to="/"
-              className="link transition !text-[14px]"
-            >
-              Home
-            </Link>
-            <Link
-              underline="hover"
-              color="inherit"
-              to="/"
-              className="link transition !text-[14px]"
-            >
-              Fashion
-            </Link>
 
-            <Link
-              underline="hover"
-              color="inherit"
-              className="link transition !text-[14px]"
-            >
-              Cropped Satin Bomber Jacket
-            </Link>
-          </Breadcrumbs>
+      <div className="bg-gray-50/80 min-h-screen pb-10">
+        {/* Breadcrumb */}
+        <div className="bg-white border-b border-gray-100">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center gap-2 py-2.5 text-sm text-gray-400 overflow-x-auto">
+              <Link to="/" className="hover:text-gray-700 transition-colors shrink-0">Home</Link>
+              <FiChevronRight className="text-gray-300 shrink-0 text-xs" />
+              <Link to="/products" className="hover:text-gray-700 transition-colors shrink-0">Products</Link>
+              <FiChevronRight className="text-gray-300 shrink-0 text-xs" />
+              <span className="text-gray-800 font-medium truncate">{data?.name}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 lg:pt-8">
+          <div className="bg-white rounded-2xl p-4 sm:p-6 lg:p-8 shadow-sm">
+            <ProductDetailsComponent
+              item={data}
+              reviewsCount={reviewsCount}
+              liveRating={rating}
+              setReviewsCount={setReviewsCount}
+            />
+          </div>
+
+          {relatedProducts.length > 0 && (
+            <YouMayAlsoLike data={relatedProducts} title="You May Also Like" />
+          )}
+
+          <RecentlyViewed data={recentlyViewed} />
         </div>
       </div>
-
-
-
-      <section className="bg-white py-5">
-        {
-          isLoading === true ?
-            <div className="flex items-center justify-center min-h-[300px]">
-              <CircularProgress />
-            </div>
-
-
-            :
-
-
-            <>
-              <div className="container flex gap-8 flex-col lg:flex-row items-start lg:items-center">
-                <div className="productZoomContainer w-full lg:w-[40%]">
-                  <ProductZoom images={productData?.images} />
-                </div>
-
-                <div className="productContent w-full lg:w-[60%] pr-2 pl-2 lg:pr-10 lg:pl-10">
-                  <ProductDetailsComponent item={productData} reviewsCount={reviewsCount} gotoReviews={gotoReviews} liveRating={liveRating} />
-                </div>
-              </div>
-
-              <div className="container pt-10">
-                <div className="flex items-center gap-8 mb-5">
-                  <span
-                    className={`link text-[17px] cursor-pointer font-[500] ${activeTab === 0 && "text-primary"
-                      }`}
-                    onClick={() => setActiveTab(0)}
-                  >
-                    Description
-                  </span>
-
-
-                  <span
-                    className={`link text-[17px] cursor-pointer font-[500] ${activeTab === 1 && "text-primary"
-                      }`}
-                    onClick={() => setActiveTab(1)}
-                    ref={reviewSec}
-                  >
-                    Reviews ({reviewsCount})
-                  </span>
-                </div>
-
-                {activeTab === 0 && (
-                  <div className="shadow-md w-full py-5 px-8 rounded-md text-[14px]">
-                    {
-                      productData?.description
-                    }
-                  </div>
-                )}
-
-
-                {activeTab === 1 && (
-                  <div className="shadow-none lg:shadow-md w-full sm:w-[80%] py-0  lg:py-5 px-0 lg:px-8 rounded-md">
-                    {
-                      productData?.length !== 0 && <Reviews productId={productData?._id} setReviewsCount={setReviewsCount} />
-                    }
-
-                  </div>
-                )}
-              </div>
-
-              {
-                relatedProductData?.length !== 0 &&
-                <div className="container pt-8">
-                  <h2 className="text-[20px] font-[600] pb-0">Related Products</h2>
-                  <ProductsSlider items={6} data={relatedProductData}/>
-                </div>
-              }
-
-
-              {recommendedProducts?.length !== 0 && (
-                <div className="container pt-8">
-                  <h2 className="text-[20px] font-[600] pb-4">You May Also Like</h2>
-                  <ProductsSlider items={4} data={recommendedProducts}/>
-                </div>
-              )}
-
-
-            </>
-
-        }
-
-
-
-
-      </section>
     </>
   );
 };
+
+export default ProductDetails;

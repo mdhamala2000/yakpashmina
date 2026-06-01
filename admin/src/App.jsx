@@ -2,17 +2,18 @@ import "./App.css";
 import "./responsive.css";
 import React from 'react';
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Dashboard from "./Pages/Dashboard";
 import Header from "./Components/Header";
 import Sidebar from "./Components/Sidebar";
 import { createContext, useState } from "react";
+import AdminRoute from "./Components/AdminRoute";
 import Login from "./Pages/Login";
 import SignUp from "./Pages/SignUp";
 import Products from "./Pages/Products";
 
 import HomeSliderBanners from "./Pages/HomeSliderBanners";
-import SubCategoryList from "./Pages/Categegory/subCatList";
-import CategoryManager from "./Pages/Categegory/CategoryList";
+import CategoryManager from "./Pages/Category/CategoryList";
 import Users from "./Pages/Users";
 import Orders from "./Pages/Orders";
 import ForgotPassword from "./Pages/ForgotPassword";
@@ -38,7 +39,17 @@ import DiscountCodes from "./Pages/DiscountCodes";
 import Shipping from "./Pages/Shipping";
 import PaymentSettings from "./Pages/PaymentSettings";
 import AbandonedCarts from "./Pages/AbandonedCarts";
+import InventoryAlerts from "./Pages/InventoryAlerts";
 import LoadingBar from "react-top-loading-bar";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      staleTime: 5 * 60 * 1000,
+    },
+  },
+});
 
 const MyContext = createContext();
 function App() {
@@ -57,6 +68,8 @@ function App() {
     open: false,
     id: ""
   });
+
+  const [productsRefreshTrigger, setProductsRefreshTrigger] = useState(0);
 
 
   useEffect(() => {
@@ -87,7 +100,7 @@ function App() {
       path: "/",
       exact: true,
       element: (
-        <>
+        <AdminRoute>
           <section className="main">
             <Header />
             <div className="contentMain flex">
@@ -106,7 +119,7 @@ function App() {
               </div>
             </div>
           </section>
-        </>
+        </AdminRoute>
       ),
     },
     {
@@ -158,7 +171,7 @@ function App() {
       path: "/products",
       exact: true,
       element: (
-        <>
+        <AdminRoute>
           <section className="main">
             <Header />
             <div className="contentMain flex">
@@ -176,14 +189,14 @@ function App() {
               </div>
             </div>
           </section>
-        </>
+        </AdminRoute>
       ),
     },
     {
       path: "/homeSlider/list",
       exact: true,
       element: (
-        <>
+        <AdminRoute>
           <section className="main">
             <Header />
             <div className="contentMain flex">
@@ -201,64 +214,14 @@ function App() {
               </div>
             </div>
           </section>
-        </>
-      ),
-    },
-    {
-      path: "/category/list",
-      exact: true,
-      element: (
-        <>
-          <section className="main">
-            <Header />
-            <div className="contentMain flex">
-              <div
-                className={`overflow-hidden sidebarWrapper ${isSidebarOpen === true ? windowWidth < 992 ? `w-[${sidebarWidth / 1.5}%]` : `w-[20%]` : "w-[0px] opacity-0 invisible"
-                  } transition-all`}
-              >
-                <Sidebar />
-              </div>
-              <div
-                className={`contentRight overflow-hidden py-4 px-5 ${isSidebarOpen === true && windowWidth < 992 && 'opacity-0'}  transition-all`}
-                style={{ width: isSidebarOpen === false ? "100%" : '80%' }}
-              >
-                <CategoryManager />
-              </div>
-            </div>
-          </section>
-        </>
-      ),
-    },
-    {
-      path: "/subCategory/list",
-      exact: true,
-      element: (
-        <>
-          <section className="main">
-            <Header />
-            <div className="contentMain flex">
-              <div
-                className={`overflow-hidden sidebarWrapper ${isSidebarOpen === true ? windowWidth < 992 ? `w-[${sidebarWidth / 1.5}%]` : `w-[20%]` : "w-[0px] opacity-0 invisible"
-                  } transition-all`}
-              >
-                <Sidebar />
-              </div>
-              <div
-                className={`contentRight overflow-hidden py-4 px-5 ${isSidebarOpen === true && windowWidth < 992 && 'opacity-0'}  transition-all`}
-                style={{ width: isSidebarOpen === false ? "100%" : '80%' }}
-              >
-                <CategoryManager />
-              </div>
-            </div>
-          </section>
-        </>
+        </AdminRoute>
       ),
     },
     {
       path: "/category",
       exact: true,
       element: (
-        <>
+        <AdminRoute>
           <section className="main">
             <Header />
             <div className="contentMain flex">
@@ -270,20 +233,20 @@ function App() {
               </div>
               <div
                 className={`contentRight overflow-hidden py-4 px-5 ${isSidebarOpen === true && windowWidth < 992 && 'opacity-0'}  transition-all`}
-                style={{ width: isSidebarOpen === false ? "100%" : '80%' }}
+                style={{ width: isSidebarOpen === false ? "100%" : '82%' }}
               >
                 <CategoryManager />
               </div>
             </div>
           </section>
-        </>
+        </AdminRoute>
       ),
     },
     {
       path: "/users",
       exact: true,
       element: (
-        <>
+        <AdminRoute>
           <section className="main">
             <Header />
             <div className="contentMain flex">
@@ -301,14 +264,14 @@ function App() {
               </div>
             </div>
           </section>
-        </>
+        </AdminRoute>
       ),
     },
     {
       path: "/orders",
       exact: true,
       element: (
-        <>
+        <AdminRoute>
           <section className="main">
             <Header />
             <div className="contentMain flex">
@@ -326,14 +289,14 @@ function App() {
               </div>
             </div>
           </section>
-        </>
+        </AdminRoute>
       ),
     },
     {
       path: "/profile",
       exact: true,
       element: (
-        <>
+        <AdminRoute>
           <section className="main">
             <Header />
             <div className="contentMain flex">
@@ -351,14 +314,14 @@ function App() {
               </div>
             </div>
           </section>
-        </>
+        </AdminRoute>
       ),
     },
     {
       path: "/product/:id",
       exact: true,
       element: (
-        <>
+        <AdminRoute>
           <section className="main">
             <Header />
             <div className="contentMain flex">
@@ -376,7 +339,7 @@ function App() {
               </div>
             </div>
           </section>
-        </>
+        </AdminRoute>
       ),
     },
 
@@ -384,7 +347,7 @@ function App() {
       path: "/product/addRams",
       exact: true,
       element: (
-        <>
+        <AdminRoute>
           <section className="main">
             <Header />
             <div className="contentMain flex">
@@ -402,14 +365,14 @@ function App() {
               </div>
             </div>
           </section>
-        </>
+        </AdminRoute>
       ),
     },
     {
       path: "/product/addWeight",
       exact: true,
       element: (
-        <>
+        <AdminRoute>
           <section className="main">
             <Header />
             <div className="contentMain flex">
@@ -427,14 +390,14 @@ function App() {
               </div>
             </div>
           </section>
-        </>
+        </AdminRoute>
       ),
     },
     {
       path: "/product/addSize",
       exact: true,
       element: (
-        <>
+        <AdminRoute>
           <section className="main">
             <Header />
             <div className="contentMain flex">
@@ -452,14 +415,14 @@ function App() {
               </div>
             </div>
           </section>
-        </>
+        </AdminRoute>
       ),
     },
     {
       path: "/product/addColor",
       exact: true,
       element: (
-        <>
+        <AdminRoute>
           <section className="main">
             <Header />
             <div className="contentMain flex">
@@ -477,14 +440,14 @@ function App() {
               </div>
             </div>
           </section>
-        </>
+        </AdminRoute>
       ),
     },
     {
       path: "/product/addMaterials",
       exact: true,
       element: (
-        <>
+        <AdminRoute>
           <section className="main">
             <Header />
             <div className="contentMain flex">
@@ -502,14 +465,14 @@ function App() {
               </div>
             </div>
           </section>
-        </>
+        </AdminRoute>
       ),
     },
     {
       path: "/bannerV1/list",
       exact: true,
       element: (
-        <>
+        <AdminRoute>
           <section className="main">
             <Header />
             <div className="contentMain flex">
@@ -527,14 +490,14 @@ function App() {
               </div>
             </div>
           </section>
-        </>
+        </AdminRoute>
       ),
     },
     {
       path: "/bannerlist2/List",
       exact: true,
       element: (
-        <>
+        <AdminRoute>
           <section className="main">
             <Header />
             <div className="contentMain flex">
@@ -552,14 +515,14 @@ function App() {
               </div>
             </div>
           </section>
-        </>
+        </AdminRoute>
       ),
     },
     {
       path: "/blog/List",
       exact: true,
       element: (
-        <>
+        <AdminRoute>
           <section className="main">
             <Header />
             <div className="contentMain flex">
@@ -577,14 +540,14 @@ function App() {
               </div>
             </div>
           </section>
-        </>
+        </AdminRoute>
       ),
     },
     {
       path: "/logo/manage",
       exact: true,
       element: (
-        <>
+        <AdminRoute>
           <section className="main">
             <Header />
             <div className="contentMain flex">
@@ -602,14 +565,14 @@ function App() {
               </div>
             </div>
           </section>
-        </>
+        </AdminRoute>
       ),
     },
     {
       path: "/reviews/manage",
       exact: true,
       element: (
-        <>
+        <AdminRoute>
           <section className="main">
             <Header />
             <div className="contentMain flex">
@@ -627,14 +590,14 @@ function App() {
               </div>
             </div>
           </section>
-        </>
+        </AdminRoute>
       ),
     },
     {
       path: "/discountCodes",
       exact: true,
       element: (
-        <>
+        <AdminRoute>
           <section className="main">
             <Header />
             <div className="contentMain flex">
@@ -652,14 +615,14 @@ function App() {
               </div>
             </div>
           </section>
-        </>
+        </AdminRoute>
       ),
     },
     {
       path: "/shipping",
       exact: true,
       element: (
-        <>
+        <AdminRoute>
           <section className="main">
             <Header />
             <div className="contentMain flex">
@@ -677,14 +640,14 @@ function App() {
               </div>
             </div>
           </section>
-        </>
+        </AdminRoute>
       ),
     },
     {
       path: "/payment-settings",
       exact: true,
       element: (
-        <>
+        <AdminRoute>
           <section className="main">
             <Header />
             <div className="contentMain flex">
@@ -702,14 +665,39 @@ function App() {
               </div>
             </div>
           </section>
-        </>
+        </AdminRoute>
+      ),
+    },
+    {
+      path: "/inventory-alerts",
+      exact: true,
+      element: (
+        <AdminRoute>
+          <section className="main">
+            <Header />
+            <div className="contentMain flex">
+              <div
+                className={`overflow-hidden sidebarWrapper ${isSidebarOpen === true ? windowWidth < 992 ? `w-[${sidebarWidth / 1.5}%]` : `w-[20%]` : "w-[0px] opacity-0 invisible"
+                  } transition-all`}
+              >
+                <Sidebar />
+              </div>
+              <div
+                className={`contentRight overflow-hidden py-4 px-5 ${isSidebarOpen === true && windowWidth < 992 && 'opacity-0'}  transition-all`}
+                style={{ width: isSidebarOpen === false ? "100%" : '80%' }}
+              >
+                <InventoryAlerts />
+              </div>
+            </div>
+          </section>
+        </AdminRoute>
       ),
     },
     {
       path: "/abandoned-carts",
       exact: true,
       element: (
-        <>
+        <AdminRoute>
           <section className="main">
             <Header />
             <div className="contentMain flex">
@@ -727,7 +715,7 @@ function App() {
               </div>
             </div>
           </section>
-        </>
+        </AdminRoute>
       ),
     },
   ]);
@@ -800,11 +788,13 @@ function App() {
     setSidebarWidth,
     sidebarWidth,
     setProgress,
-    progress
+    progress,
+    productsRefreshTrigger,
+    setProductsRefreshTrigger
   };
 
   return (
-    <>
+    <QueryClientProvider client={queryClient}>
       <MyContext.Provider value={values}>
         <RouterProvider router={router} />
         <LoadingBar
@@ -816,7 +806,7 @@ function App() {
         />
         <Toaster />
       </MyContext.Provider>
-    </>
+    </QueryClientProvider>
   );
 }
 

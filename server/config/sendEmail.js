@@ -1,16 +1,16 @@
 import { sendEmail } from "./emailService.js";
 
-const sendEmailFun=async({sendTo, subject, text, html})=>{
-  console.log(sendTo)
+const sendEmailFun = async ({ sendTo, subject, text, html }) => {
+    console.log('=== EMAIL SERVICE DEBUG ===');
+    console.log('sendTo:', sendTo);
+    console.log('subject:', subject);
+    
     const result = await sendEmail(sendTo, subject, text, html);
-    if (result.success) {
-        return true;
-      //res.status(200).json({ message: 'Email sent successfully', messageId: result.messageId });
-    } else {
-        return false;
-     // res.status(500).json({ message: 'Failed to send email', error: result.error });
-    }
-}
-
+    
+    console.log('Email result:', result);
+    console.log('=== END EMAIL DEBUG ===');
+    
+    return result;
+};
 
 export default sendEmailFun;

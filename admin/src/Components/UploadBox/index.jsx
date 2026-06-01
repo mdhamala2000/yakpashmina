@@ -4,6 +4,44 @@ import { uploadImages } from '../../utils/api.js';
 import { MyContext } from '../../App';
 import CircularProgress from '@mui/material/CircularProgress';
 
+const MAX_DIM = 1920;
+const QUALITY = 0.82;
+
+function compressImage(file) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            const { width, height } = img;
+            let newWidth = width;
+            let newHeight = height;
+
+            if (width > MAX_DIM || height > MAX_DIM) {
+                const ratio = Math.min(MAX_DIM / width, MAX_DIM / height);
+                newWidth = Math.round(width * ratio);
+                newHeight = Math.round(height * ratio);
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = newWidth;
+            canvas.height = newHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, 0, 0, newWidth, newHeight);
+
+            canvas.toBlob((blob) => {
+                if (!blob) return reject(new Error('Canvas toBlob failed'));
+                const compressed = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {
+                    type: 'image/jpeg',
+                    lastModified: Date.now()
+                });
+                resolve(compressed);
+            }, 'image/jpeg', QUALITY);
+        };
+        img.onerror = reject;
+        img.src = URL.createObjectURL(file);
+    });
+}
 
 const UploadBox = (props) => {
     const [previews, setPreviews] = useState([]);
@@ -14,36 +52,36 @@ const UploadBox = (props) => {
     const onChangeFile = async (e, apiEndPoint) => {
         try {
             setPreviews([]);
-            const files = e.target.files;
+            const rawFiles = e.target.files;
             
-            if (!files || files.length === 0) {
+            if (!rawFiles || rawFiles.length === 0) {
                 return;
             }
 
             setUploading(true);
 
             const formdata = new FormData();
-            
-            for (var i = 0; i < files.length; i++) {
-                if (files[i] && (files[i].type === "image/jpeg" || files[i].type === "image/jpg" ||
-                    files[i].type === "image/png" ||
-                    files[i].type === "image/webp" ||  files[i].type === "image/svg+xml")
-                ) {
-                    formdata.append(props?.name, files[i]);
-                } else {
-                    context.alertBox("error", "Please select a valid JPG, PNG or webp image file.");
+            const fieldName = props?.name || 'images';
+
+            for (let i = 0; i < rawFiles.length; i++) {
+                const file = rawFiles[i];
+                const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/svg+xml"];
+                if (!file || !validTypes.includes(file.type)) {
+                    context.alertBox("error", "Please select a valid JPG, PNG or WebP image file.");
                     setUploading(false);
-                    return false;
+                    return;
                 }
+                const compressed = file.type === 'image/svg+xml' ? file : await compressImage(file);
+                formdata.append(fieldName, compressed);
             }
 
             const res = await uploadImages(apiEndPoint, formdata);
             setUploading(false);
             
-            if (res?.data?.images) {
-                props.setPreviewsFun(res?.data?.images);
-            } else if (res?.images) {
-                props.setPreviewsFun(res?.images);
+            if (res?.data?.images && Array.isArray(res.data.images)) {
+                props.setPreviewsFun(res.data.images);
+            } else if (res?.images && Array.isArray(res.images)) {
+                props.setPreviewsFun(res.images);
             } else {
                 context.alertBox("error", "Upload failed. Please try again.");
             }
@@ -51,7 +89,8 @@ const UploadBox = (props) => {
         } catch (error) {
             console.error("Upload error:", error);
             setUploading(false);
-            context.alertBox("error", "Upload failed. Please try again.");
+            const errorMsg = error.response?.data?.message || error.message || 'Please try again';
+            context.alertBox("error", `Upload failed: ${errorMsg}`);
         }
     }
 

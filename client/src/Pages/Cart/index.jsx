@@ -1,13 +1,12 @@
 import React, { useContext, useEffect, useState } from "react";
 import Button from "@mui/material/Button";
-import Chip from "@mui/material/Chip";
 import { BsFillBagCheckFill } from "react-icons/bs";
 import CartItems from "./cartItems";
 import { MyContext } from "../../App";
 import { fetchDataFromApi, postData } from "../../utils/api";
 import { Link } from "react-router-dom";
 import { useCurrency } from "../../context/CurrencyContext";
-import ProductsSlider from "../../components/ProductsSlider";
+import YouMayAlsoLike from "../../components/YouMayAlsoLike";
 import Rating from "@mui/material/Rating";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -59,7 +58,7 @@ const CartPage = () => {
 
   const calculateSubtotal = () => {
     if (context.cartData?.length === 0) return 0;
-    const total = context.cartData?.reduce((total, item) => total + parseFloat(item.price), 0);
+    const total = context.cartData?.reduce((total, item) => total + (parseFloat(item.price) * parseInt(item.quantity || 1)), 0);
     return total;
   };
 
@@ -129,24 +128,38 @@ const CartPage = () => {
             calculateTotal={calculateTotal}
           />
           
-          {context?.cartData?.length !== 0 && <YouMayAlsoLikeSection recommendedProducts={recommendedProducts} />}
+          {context?.cartData?.length !== 0 && recommendedProducts?.length > 0 && (
+            <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+              <div className="py-4 px-4 border-b border-gray-100">
+                <h3 className="text-lg font-bold text-gray-800">You May Also Like</h3>
+              </div>
+              <div className="p-4">
+                <YouMayAlsoLike data={recommendedProducts} limit={10} desktopSlides={3} simple />
+              </div>
+            </div>
+          )}
           <CustomerReviewsSection allReviews={allReviews} />
         </div>
 
         {/* Desktop: Two Column Professional Layout */}
         <div className="hidden lg:block">
-          <div className="flex gap-8">
+          <div className="flex flex-col lg:flex-row gap-6 xl:gap-8">
             {/* Left - Cart Items */}
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <CartItemsSection 
                 productSizeData={productSizeData} 
                 productRamsData={productRamsData} 
                 productWeightData={productWeightData} 
               />
               
-              {context?.cartData?.length !== 0 && (
-                <div className="mt-6">
-                  <YouMayAlsoLikeSection recommendedProducts={recommendedProducts} />
+              {context?.cartData?.length !== 0 && recommendedProducts?.length > 0 && (
+                <div className="mt-6 bg-white rounded-2xl shadow-lg overflow-hidden">
+                  <div className="py-4 px-4 lg:py-5 lg:px-5 border-b border-gray-100">
+                    <h3 className="text-lg lg:text-xl font-bold text-gray-800">You May Also Like</h3>
+                  </div>
+                  <div className="p-4 lg:p-5">
+                    <YouMayAlsoLike data={recommendedProducts} limit={10} desktopSlides={3} simple />
+                  </div>
                 </div>
               )}
               
@@ -156,7 +169,7 @@ const CartPage = () => {
             </div>
 
             {/* Right - Sticky Cart Totals */}
-            <div className="w-[380px] flex-shrink-0">
+            <div className="w-full lg:w-[340px] xl:w-[380px] flex-shrink-0">
               <div className="sticky top-24">
                 <CartTotalsSection 
                   calculateSubtotal={calculateSubtotal} 
@@ -345,27 +358,6 @@ const CartTotalsSection = ({ calculateSubtotal, appliedDiscount, calculateDiscou
           </svg>
           Secure checkout
         </div>
-      </div>
-    </div>
-  );
-};
-
-// You May Also Like Section Component
-const YouMayAlsoLikeSection = ({ recommendedProducts }) => {
-  if (recommendedProducts?.length === 0) return null;
-  
-  return (
-    <div className="shadow-lg rounded-2xl bg-white overflow-hidden mb-4 lg:mb-6">
-      <div className="py-4 px-4 lg:py-5 lg:px-5 border-b border-gray-100">
-        <h3 className="text-lg lg:text-xl font-bold text-gray-800 flex items-center gap-2">
-          <svg className="w-5 h-5 text-primary" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M11 17a1 1 0 001.447.894l4-2A1 1 0 0017 15V9.236a1 1 0 00-1.447-.894l-4 2a1 1 0 00-.105.777V17a1 1 0 001.447.894l4 2zM13.447 11.894l4-2A1 1 0 0017 9.236V6.764a1 1 0 00-1.447-.894l-4 2a1 1 0 00-.105.777V9.236a1 1 0 001.447.894l4 2z" />
-          </svg>
-          You May Also Like
-        </h3>
-      </div>
-      <div className="p-4 lg:p-5">
-        <ProductsSlider items={4} data={recommendedProducts} />
       </div>
     </div>
   );
