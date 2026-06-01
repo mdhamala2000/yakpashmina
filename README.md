@@ -243,3 +243,4 @@ The seed script (`server/scripts/seed.js`) creates:
 - For Stripe payments, use test keys from Stripe dashboard
 - Image uploads use Cloudinary by default; configure Cloudinary credentials in server/.env
 # yakpashmina
+# yakpashmina
